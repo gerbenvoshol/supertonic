@@ -6,6 +6,13 @@ assets/.gitattributes
 *.onnx
 onnx
 
+# Build artifacts
+*.o
+*.exe
+c/example_onnx
+c/audiobook_generator
+cpp/example_onnx
+
 # Output files
 results
 

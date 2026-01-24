@@ -63,12 +63,12 @@ typedef struct {
 
 /* Initialize sentence array */
 static SentenceArray* sentence_array_create(void) {
-    SentenceArray* arr = (SentenceArray*)malloc(sizeof(SentenceArray));
+    SentenceArray* arr = malloc(sizeof(SentenceArray));
     if (!arr) return NULL;
     
     arr->capacity = 100;
     arr->count = 0;
-    arr->sentences = (Sentence*)malloc(arr->capacity * sizeof(Sentence));
+    arr->sentences = malloc(arr->capacity * sizeof(Sentence));
     if (!arr->sentences) {
         free(arr);
         return NULL;
@@ -83,8 +83,8 @@ static int sentence_array_add(SentenceArray* arr, const char* text, float pause)
     
     if (arr->count >= arr->capacity) {
         size_t new_capacity = arr->capacity * 2;
-        Sentence* new_sentences = (Sentence*)realloc(arr->sentences, 
-                                                      new_capacity * sizeof(Sentence));
+        Sentence* new_sentences = realloc(arr->sentences, 
+                                          new_capacity * sizeof(Sentence));
         if (!new_sentences) return -1;
         arr->sentences = new_sentences;
         arr->capacity = new_capacity;
@@ -282,7 +282,7 @@ static char* read_text_file(const char* filename) {
     fseek(f, 0, SEEK_SET);
     
     /* Allocate buffer */
-    char* buffer = (char*)malloc(size + 1);
+    char* buffer = malloc(size + 1);
     if (!buffer) {
         fclose(f);
         return NULL;
@@ -301,7 +301,7 @@ static float* generate_silence(float duration_sec, int sample_rate, size_t* out_
     size_t num_samples = (size_t)(duration_sec * sample_rate);
     *out_samples = num_samples;
     
-    float* silence = (float*)calloc(num_samples, sizeof(float));
+    float* silence = calloc(num_samples, sizeof(float));
     return silence;
 }
 
@@ -314,7 +314,7 @@ static int append_audio(float** dest, size_t* dest_size, size_t* dest_capacity,
     
     if (new_size > *dest_capacity) {
         size_t new_capacity = new_size * 2;
-        float* new_buffer = (float*)realloc(*dest, new_capacity * sizeof(float));
+        float* new_buffer = realloc(*dest, new_capacity * sizeof(float));
         if (!new_buffer) return -1;
         *dest = new_buffer;
         *dest_capacity = new_capacity;
@@ -485,7 +485,7 @@ int main(int argc, char* argv[]) {
     /* Allocate audio buffer */
     size_t audio_capacity = 1000000;  /* Start with 1M samples */
     size_t audio_size = 0;
-    float* audio_buffer = (float*)malloc(audio_capacity * sizeof(float));
+    float* audio_buffer = malloc(audio_capacity * sizeof(float));
     if (!audio_buffer) {
         fprintf(stderr, "Error: Failed to allocate audio buffer\n");
         style_free(style);
