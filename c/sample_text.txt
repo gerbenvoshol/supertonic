@@ -1,0 +1,19 @@
+Welcome to the audiobook generator demonstration.
+
+This is a new paragraph. It will have an eight hundred millisecond pause before it.
+
+You can control pauses with custom directives. [PAUSE:1000] That was a one-second pause.
+
+The generator handles punctuation naturally: commas create short pauses, and periods create longer ones. Questions? They get pauses too! Exclamations work as well!
+
+Semicolons and colons also create pauses; they're somewhere between commas and periods. Here's a list: first item, second item, third item. See how the pauses work?
+
+[PAUSE:1500] After a custom pause, the text continues normally.
+
+This is a longer paragraph to demonstrate how the system handles continuous text. It will process this sentence by sentence, maintaining natural speech patterns throughout. The audiobook generator is designed to be memory efficient, processing one sentence at a time rather than loading the entire text into memory at once. This makes it suitable for processing very large text files, such as complete novels or lengthy technical documents.
+
+Empty lines create paragraph breaks.
+
+And here's another paragraph with various punctuation! Does it sound natural? I hope so. Let me know what you think.
+
+Thank you for listening to this demonstration. Enjoy creating your own audiobooks!

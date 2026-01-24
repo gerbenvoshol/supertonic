@@ -31,24 +31,32 @@ SOURCES = supertonic.c wav_utils.c
 OBJECTS = $(SOURCES:.c=.o)
 EXAMPLE_SRC = example_onnx.c
 EXAMPLE_BIN = example_onnx
+AUDIOBOOK_SRC = audiobook_generator.c
+AUDIOBOOK_BIN = audiobook_generator
 
 # Targets
 .PHONY: all clean
 
-all: $(EXAMPLE_BIN)
+all: $(EXAMPLE_BIN) $(AUDIOBOOK_BIN)
 
 $(EXAMPLE_BIN): $(OBJECTS) $(EXAMPLE_SRC)
 	$(CC) $(CFLAGS) -o $@ $(EXAMPLE_SRC) $(OBJECTS) $(LDFLAGS)
 	@echo ""
-	@echo "Build successful!"
-	@echo "Run with: ./$(EXAMPLE_BIN)"
+	@echo "Build successful: $(EXAMPLE_BIN)"
+	@echo ""
+
+$(AUDIOBOOK_BIN): $(OBJECTS) $(AUDIOBOOK_SRC)
+	$(CC) $(CFLAGS) -o $@ $(AUDIOBOOK_SRC) $(OBJECTS) $(LDFLAGS)
+	@echo ""
+	@echo "Build successful: $(AUDIOBOOK_BIN)"
+	@echo "Run with: ./$(AUDIOBOOK_BIN) --input sample_text.txt"
 	@echo ""
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(OBJECTS) $(EXAMPLE_BIN)
+	rm -f $(OBJECTS) $(EXAMPLE_BIN) $(AUDIOBOOK_BIN)
 	rm -rf results
 	@echo "Clean complete"
 
@@ -73,3 +81,4 @@ help:
 supertonic.o: supertonic.c supertonic.h wav_utils.h
 wav_utils.o: wav_utils.c wav_utils.h
 example_onnx.o: example_onnx.c supertonic.h wav_utils.h
+audiobook_generator.o: audiobook_generator.c supertonic.h wav_utils.h

@@ -79,6 +79,7 @@ We provide ready-to-use TTS inference examples across multiple ecosystems:
 | [**Node.js**](nodejs/) | `nodejs/` | Server-side JavaScript |
 | [**Browser**](web/) | `web/` | WebGPU/WASM inference |
 | [**Java**](java/) | `java/` | Cross-platform JVM |
+| [**C**](c/) | `c/` | Pure C with audiobook generator |
 | [**C++**](cpp/) | `cpp/` | High-performance C++ |
 | [**C#**](csharp/) | `csharp/` | .NET ecosystem |
 | [**Go**](go/) | `go/` | Go implementation |
@@ -146,6 +147,15 @@ cd cpp
 mkdir build && cd build
 cmake .. && cmake --build . --config Release
 ./example_onnx
+```
+
+**C Example** ([Details](c/))
+```bash
+cd c
+make
+./example_onnx
+# Or generate an audiobook
+./audiobook_generator --input sample_text.txt --output audiobook.wav
 ```
 
 **C# Example** ([Details](csharp/))
