@@ -444,7 +444,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     
-    TextToSpeech* tts = text_to_speech_create(env, ort_api, args.onnx_dir, 0);
+    TextToSpeech* tts = load_text_to_speech(env, args.onnx_dir, 0);
     if (!tts) {
         fprintf(stderr, "Error: Failed to load TTS models\n");
         ort_api->ReleaseEnv(env);
@@ -454,10 +454,11 @@ int main(int argc, char* argv[]) {
     
     /* Load voice style */
     printf("Loading voice style: %s\n", args.voice_style);
-    Style* style = style_load_from_file(args.voice_style);
+    const char* voice_paths[] = {args.voice_style};
+    Style* style = load_voice_style(voice_paths, 1, 1);
     if (!style) {
         fprintf(stderr, "Error: Failed to load voice style\n");
-        text_to_speech_free(tts);
+        tts_free(tts);
         ort_api->ReleaseEnv(env);
         sentence_array_free(sentences);
         return 1;
@@ -470,6 +471,17 @@ int main(int argc, char* argv[]) {
     printf("  Steps: %d\n", args.steps);
     printf("  Output: %s\n\n", args.output_file);
     
+    /* Create memory info */
+    OrtMemoryInfo* memory_info = NULL;
+    if (ort_api->CreateCpuMemoryInfo(OrtArenaAllocator, OrtMemTypeDefault, &memory_info) != NULL) {
+        fprintf(stderr, "Error: Failed to create memory info\n");
+        style_free(style);
+        tts_free(tts);
+        ort_api->ReleaseEnv(env);
+        sentence_array_free(sentences);
+        return 1;
+    }
+    
     /* Allocate audio buffer */
     size_t audio_capacity = 1000000;  /* Start with 1M samples */
     size_t audio_size = 0;
@@ -477,7 +489,7 @@ int main(int argc, char* argv[]) {
     if (!audio_buffer) {
         fprintf(stderr, "Error: Failed to allocate audio buffer\n");
         style_free(style);
-        text_to_speech_free(tts);
+        tts_free(tts);
         ort_api->ReleaseEnv(env);
         sentence_array_free(sentences);
         return 1;
@@ -503,28 +515,25 @@ int main(int argc, char* argv[]) {
         }
         
         /* Synthesize speech */
-        float* wav_data = NULL;
-        size_t wav_samples = 0;
-        float duration = 0.0f;
+        SynthesisResult* result = tts_call(tts, memory_info, trimmed, args.lang, style,
+                                          args.steps, args.speed, 0.0f);
         
-        int result = text_to_speech_synthesize(tts, trimmed, args.lang, style,
-                                              args.steps, args.speed, 0.0f,
-                                              &wav_data, &wav_samples, &duration);
-        
-        if (result != 0 || !wav_data) {
+        if (!result || !result->wav) {
             fprintf(stderr, "\nWarning: Failed to synthesize sentence %zu\n", i + 1);
+            if (result) synthesis_result_free(result);
             continue;
         }
         
         /* Append synthesized audio */
         if (append_audio(&audio_buffer, &audio_size, &audio_capacity, 
-                        wav_data, wav_samples) != 0) {
+                        result->wav, result->wav_size) != 0) {
             fprintf(stderr, "\nError: Failed to append audio\n");
-            free(wav_data);
+            synthesis_result_free(result);
             break;
         }
         
-        free(wav_data);
+        float duration = result->duration[0];
+        synthesis_result_free(result);
         stats.total_audio_duration += duration;
         
         /* Add pause after sentence if specified */
@@ -555,11 +564,12 @@ int main(int argc, char* argv[]) {
     /* Write output file */
     printf("Writing output file: %s\n", args.output_file);
     if (write_wav_file(args.output_file, audio_buffer, audio_size, 
-                      DEFAULT_SAMPLE_RATE, 16) != 0) {
+                      DEFAULT_SAMPLE_RATE) != 0) {
         fprintf(stderr, "Error: Failed to write output file\n");
         free(audio_buffer);
+        ort_api->ReleaseMemoryInfo(memory_info);
         style_free(style);
-        text_to_speech_free(tts);
+        tts_free(tts);
         ort_api->ReleaseEnv(env);
         sentence_array_free(sentences);
         return 1;
@@ -583,8 +593,9 @@ int main(int argc, char* argv[]) {
     
     /* Cleanup */
     free(audio_buffer);
+    ort_api->ReleaseMemoryInfo(memory_info);
     style_free(style);
-    text_to_speech_free(tts);
+    tts_free(tts);
     ort_api->ReleaseEnv(env);
     sentence_array_free(sentences);
     

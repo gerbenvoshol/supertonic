@@ -218,16 +218,16 @@ static char* preprocess_text(const char* text, const char* lang) {
     char* result = strdup(text);
     char* temp;
     
-    /* Symbol replacements */
-    temp = str_replace(result, "–", "-"); free(result); result = temp;
-    temp = str_replace(result, "‑", "-"); free(result); result = temp;
-    temp = str_replace(result, "—", "-"); free(result); result = temp;
+    /* Symbol replacements - use UTF-8 encoded strings */
+    temp = str_replace(result, "\xE2\x80\x93", "-"); free(result); result = temp;  /* en dash */
+    temp = str_replace(result, "\xE2\x80\x91", "-"); free(result); result = temp;  /* non-breaking hyphen */
+    temp = str_replace(result, "\xE2\x80\x94", "-"); free(result); result = temp;  /* em dash */
     temp = str_replace(result, "_", " "); free(result); result = temp;
-    temp = str_replace(result, """, "\""); free(result); result = temp;
-    temp = str_replace(result, """, "\""); free(result); result = temp;
-    temp = str_replace(result, "'", "'"); free(result); result = temp;
-    temp = str_replace(result, "'", "'"); free(result); result = temp;
-    temp = str_replace(result, "´", "'"); free(result); result = temp;
+    temp = str_replace(result, "\xE2\x80\x9C", "\""); free(result); result = temp;  /* left double quote */
+    temp = str_replace(result, "\xE2\x80\x9D", "\""); free(result); result = temp;  /* right double quote */
+    temp = str_replace(result, "\xE2\x80\x98", "'"); free(result); result = temp;   /* left single quote */
+    temp = str_replace(result, "\xE2\x80\x99", "'"); free(result); result = temp;   /* right single quote */
+    temp = str_replace(result, "\xC2\xB4", "'"); free(result); result = temp;       /* acute accent */
     temp = str_replace(result, "`", "'"); free(result); result = temp;
     temp = str_replace(result, "[", " "); free(result); result = temp;
     temp = str_replace(result, "]", " "); free(result); result = temp;
@@ -237,10 +237,10 @@ static char* preprocess_text(const char* text, const char* lang) {
     
     temp = remove_emoji(result); free(result); result = temp;
     
-    temp = str_remove(result, "♥"); free(result); result = temp;
-    temp = str_remove(result, "☆"); free(result); result = temp;
-    temp = str_remove(result, "♡"); free(result); result = temp;
-    temp = str_remove(result, "©"); free(result); result = temp;
+    temp = str_remove(result, "\xE2\x99\xA5"); free(result); result = temp;  /* heart */
+    temp = str_remove(result, "\xE2\x98\x86"); free(result); result = temp;  /* star */
+    temp = str_remove(result, "\xE2\x99\xA1"); free(result); result = temp;  /* white heart */
+    temp = str_remove(result, "\xC2\xA9"); free(result); result = temp;      /* copyright */
     temp = str_remove(result, "\\"); free(result); result = temp;
     
     temp = str_replace(result, "@", " at "); free(result); result = temp;
