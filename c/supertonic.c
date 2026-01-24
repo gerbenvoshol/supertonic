@@ -747,16 +747,30 @@ static size_t g_tensor_int64_capacity = 0;
 
 static void store_float_buffer(float* buffer) {
     if (g_tensor_float_count >= g_tensor_float_capacity) {
-        g_tensor_float_capacity = (g_tensor_float_capacity == 0) ? 16 : g_tensor_float_capacity * 2;
-        g_tensor_buffers_float = realloc(g_tensor_buffers_float, g_tensor_float_capacity * sizeof(float*));
+        size_t new_capacity = (g_tensor_float_capacity == 0) ? 16 : g_tensor_float_capacity * 2;
+        float** new_buffers = realloc(g_tensor_buffers_float, new_capacity * sizeof(float*));
+        if (!new_buffers) {
+            fprintf(stderr, "Error: Failed to allocate memory for tensor buffers\n");
+            free(buffer);
+            return;
+        }
+        g_tensor_buffers_float = new_buffers;
+        g_tensor_float_capacity = new_capacity;
     }
     g_tensor_buffers_float[g_tensor_float_count++] = buffer;
 }
 
 static void store_int64_buffer(int64_t* buffer) {
     if (g_tensor_int64_count >= g_tensor_int64_capacity) {
-        g_tensor_int64_capacity = (g_tensor_int64_capacity == 0) ? 16 : g_tensor_int64_capacity * 2;
-        g_tensor_buffers_int64 = realloc(g_tensor_buffers_int64, g_tensor_int64_capacity * sizeof(int64_t*));
+        size_t new_capacity = (g_tensor_int64_capacity == 0) ? 16 : g_tensor_int64_capacity * 2;
+        int64_t** new_buffers = realloc(g_tensor_buffers_int64, new_capacity * sizeof(int64_t*));
+        if (!new_buffers) {
+            fprintf(stderr, "Error: Failed to allocate memory for tensor buffers\n");
+            free(buffer);
+            return;
+        }
+        g_tensor_buffers_int64 = new_buffers;
+        g_tensor_int64_capacity = new_capacity;
     }
     g_tensor_buffers_int64[g_tensor_int64_count++] = buffer;
 }
@@ -789,6 +803,10 @@ OrtValue* array_to_tensor_3d(
     
     size_t total_size = dim0 * dim1 * dim2;
     float* flat = malloc(total_size * sizeof(float));
+    if (!flat) {
+        fprintf(stderr, "Error: Failed to allocate memory for tensor data\n");
+        return NULL;
+    }
     
     size_t idx = 0;
     for (int64_t i = 0; i < dim0; i++) {
@@ -829,6 +847,10 @@ OrtValue* int_array_to_tensor_2d(
     
     size_t total_size = dim0 * dim1;
     int64_t* flat = malloc(total_size * sizeof(int64_t));
+    if (!flat) {
+        fprintf(stderr, "Error: Failed to allocate memory for tensor data\n");
+        return NULL;
+    }
     
     size_t idx = 0;
     for (int64_t i = 0; i < dim0; i++) {
@@ -1363,6 +1385,10 @@ TextToSpeech* load_text_to_speech(OrtEnv* env, const char* onnx_dir, int use_gpu
 char* sanitize_filename(const char* text, int max_len) {
     size_t len = strlen(text);
     char* result = malloc(max_len + 1);
+    if (!result) {
+        fprintf(stderr, "Error: Failed to allocate memory for sanitized filename\n");
+        return strdup("output");
+    }
     int pos = 0;
     size_t i = 0;
     
@@ -1397,19 +1423,34 @@ char** chunk_text(const char* text, int max_len, int* chunk_count) {
     size_t len = strlen(text);
     if (len <= (size_t)max_len) {
         char** chunks = malloc(sizeof(char*));
+        if (!chunks) {
+            *chunk_count = 0;
+            return NULL;
+        }
         chunks[0] = strdup(text);
         *chunk_count = 1;
         return chunks;
     }
     
-    char** chunks = malloc(100 * sizeof(char*));
+    int max_chunks = 1000;
+    char** chunks = malloc(max_chunks * sizeof(char*));
+    if (!chunks) {
+        *chunk_count = 0;
+        return NULL;
+    }
     int count = 0;
     size_t start = 0;
     
     while (start < len) {
+        if (count >= max_chunks) {
+            fprintf(stderr, "Warning: Text has more than %d chunks, truncating\n", max_chunks);
+            break;
+        }
+        
         size_t end = start + max_len;
         if (end >= len) {
-            chunks[count++] = strdup(text + start);
+            chunks[count] = strdup(text + start);
+            if (chunks[count]) count++;
             break;
         }
         
@@ -1424,9 +1465,11 @@ char** chunk_text(const char* text, int max_len, int* chunk_count) {
         
         size_t chunk_len = end - start;
         chunks[count] = malloc(chunk_len + 1);
-        memcpy(chunks[count], text + start, chunk_len);
-        chunks[count][chunk_len] = 0;
-        count++;
+        if (chunks[count]) {
+            memcpy(chunks[count], text + start, chunk_len);
+            chunks[count][chunk_len] = 0;
+            count++;
+        }
         
         start = end + 1;
         while (start < len && text[start] == ' ') start++;
