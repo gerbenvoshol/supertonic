@@ -303,6 +303,11 @@ static char* preprocess_text(const char* text, const char* lang) {
 
 /* Unicode Processor implementation */
 UnicodeProcessor* unicode_processor_create(const char* unicode_indexer_json_path) {
+    if (!unicode_indexer_json_path) {
+        fprintf(stderr, "Error: unicode_indexer_json_path is NULL\n");
+        return NULL;
+    }
+    
     FILE* file = fopen(unicode_indexer_json_path, "r");
     if (!file) {
         fprintf(stderr, "Failed to open unicode indexer: %s\n", unicode_indexer_json_path);
@@ -510,6 +515,11 @@ void free_2d_int64_array(int64_t** array, int rows) {
 
 /* ONNX model loading */
 OrtSession* load_onnx(OrtEnv* env, const char* onnx_path, const OrtSessionOptions* opts) {
+    if (!env || !onnx_path || !opts) {
+        fprintf(stderr, "Error: NULL parameter passed to load_onnx\n");
+        return NULL;
+    }
+    
     OrtSession* session;
     const OrtApi* g_ort = OrtGetApiBase()->GetApi(ORT_API_VERSION);
     OrtStatus* status = g_ort->CreateSession(env, onnx_path, opts, &session);
@@ -523,6 +533,11 @@ OrtSession* load_onnx(OrtEnv* env, const char* onnx_path, const OrtSessionOption
 }
 
 OnnxModels* load_onnx_all(OrtEnv* env, const char* onnx_dir, const OrtSessionOptions* opts) {
+    if (!env || !onnx_dir || !opts) {
+        fprintf(stderr, "Error: NULL parameter passed to load_onnx_all\n");
+        return NULL;
+    }
+    
     OnnxModels* models = malloc(sizeof(OnnxModels));
     char path[1024];
     
@@ -559,6 +574,11 @@ void onnx_models_free(OnnxModels* models) {
 
 /* Configuration loading */
 Config* load_cfgs(const char* onnx_dir) {
+    if (!onnx_dir) {
+        fprintf(stderr, "Error: onnx_dir is NULL\n");
+        return NULL;
+    }
+    
     char cfg_path[1024];
     snprintf(cfg_path, sizeof(cfg_path), "%s/tts.json", onnx_dir);
     
@@ -600,6 +620,11 @@ Config* load_cfgs(const char* onnx_dir) {
 }
 
 UnicodeProcessor* load_text_processor(const char* onnx_dir) {
+    if (!onnx_dir) {
+        fprintf(stderr, "Error: onnx_dir is NULL\n");
+        return NULL;
+    }
+    
     char path[1024];
     snprintf(path, sizeof(path), "%s/unicode_indexer.json", onnx_dir);
     return unicode_processor_create(path);
@@ -607,6 +632,11 @@ UnicodeProcessor* load_text_processor(const char* onnx_dir) {
 
 /* Voice style loading */
 Style* load_voice_style(const char** voice_style_paths, int count, int verbose) {
+    if (!voice_style_paths || count <= 0) {
+        fprintf(stderr, "Error: Invalid voice_style_paths or count\n");
+        return NULL;
+    }
+    
     FILE* first_file = fopen(voice_style_paths[0], "r");
     if (!first_file) {
         fprintf(stderr, "Failed to open voice style file: %s\n", voice_style_paths[0]);
@@ -707,6 +737,48 @@ Style* load_voice_style(const char** voice_style_paths, int count, int verbose) 
     return style;
 }
 
+/* Global tensor buffers - kept alive for tensor lifetime */
+static float** g_tensor_buffers_float = NULL;
+static int64_t** g_tensor_buffers_int64 = NULL;
+static size_t g_tensor_float_count = 0;
+static size_t g_tensor_int64_count = 0;
+static size_t g_tensor_float_capacity = 0;
+static size_t g_tensor_int64_capacity = 0;
+
+static void store_float_buffer(float* buffer) {
+    if (g_tensor_float_count >= g_tensor_float_capacity) {
+        g_tensor_float_capacity = (g_tensor_float_capacity == 0) ? 16 : g_tensor_float_capacity * 2;
+        g_tensor_buffers_float = realloc(g_tensor_buffers_float, g_tensor_float_capacity * sizeof(float*));
+    }
+    g_tensor_buffers_float[g_tensor_float_count++] = buffer;
+}
+
+static void store_int64_buffer(int64_t* buffer) {
+    if (g_tensor_int64_count >= g_tensor_int64_capacity) {
+        g_tensor_int64_capacity = (g_tensor_int64_capacity == 0) ? 16 : g_tensor_int64_capacity * 2;
+        g_tensor_buffers_int64 = realloc(g_tensor_buffers_int64, g_tensor_int64_capacity * sizeof(int64_t*));
+    }
+    g_tensor_buffers_int64[g_tensor_int64_count++] = buffer;
+}
+
+void clear_tensor_buffers() {
+    for (size_t i = 0; i < g_tensor_float_count; i++) {
+        free(g_tensor_buffers_float[i]);
+    }
+    free(g_tensor_buffers_float);
+    g_tensor_buffers_float = NULL;
+    g_tensor_float_count = 0;
+    g_tensor_float_capacity = 0;
+    
+    for (size_t i = 0; i < g_tensor_int64_count; i++) {
+        free(g_tensor_buffers_int64[i]);
+    }
+    free(g_tensor_buffers_int64);
+    g_tensor_buffers_int64 = NULL;
+    g_tensor_int64_count = 0;
+    g_tensor_int64_capacity = 0;
+}
+
 /* Tensor utilities */
 OrtValue* array_to_tensor_3d(
     OrtMemoryInfo* memory_info,
@@ -742,6 +814,9 @@ OrtValue* array_to_tensor_3d(
         return NULL;
     }
     
+    /* Store buffer to keep it alive - it will be freed when tensor is released or manually cleared */
+    store_float_buffer(flat);
+    
     return tensor;
 }
 
@@ -776,6 +851,9 @@ OrtValue* int_array_to_tensor_2d(
         free(flat);
         return NULL;
     }
+    
+    /* Store buffer to keep it alive - it will be freed when tensor is released or manually cleared */
+    store_int64_buffer(flat);
     
     return tensor;
 }

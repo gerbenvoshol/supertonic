@@ -210,6 +210,7 @@ int main(int argc, char* argv[]) {
         }
         
         synthesis_result_free(result);
+        clear_tensor_buffers();
     }
     
     printf("\n=== Synthesis completed successfully! ===\n");

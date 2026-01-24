@@ -5,6 +5,15 @@
 #include <math.h>
 
 int write_wav_file(const char* filename, const float* audio_data, size_t audio_size, int sample_rate) {
+    if (!filename) {
+        fprintf(stderr, "Error: filename is NULL\n");
+        return -1;
+    }
+    if (!audio_data) {
+        fprintf(stderr, "Error: audio_data is NULL\n");
+        return -1;
+    }
+    
     FILE* file = fopen(filename, "wb");
     if (!file) {
         fprintf(stderr, "Failed to open file for writing: %s\n", filename);

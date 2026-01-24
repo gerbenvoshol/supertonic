@@ -156,6 +156,8 @@ Style* load_voice_style(const char** voice_style_paths, int count, int verbose);
 TextToSpeech* load_text_to_speech(OrtEnv* env, const char* onnx_dir, int use_gpu);
 
 /* Tensor creation utilities */
+void clear_tensor_buffers(void);
+
 OrtValue* array_to_tensor_3d(
     OrtMemoryInfo* memory_info,
     float*** array,
