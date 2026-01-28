@@ -1,3 +1,4 @@
+#define _POSIX_C_SOURCE 200809L
 #include "supertonic.h"
 #include "wav_utils.h"
 #include <stdio.h>
@@ -319,9 +320,19 @@ UnicodeProcessor* unicode_processor_create(const char* unicode_indexer_json_path
     fseek(file, 0, SEEK_SET);
     
     char* json_str = malloc(file_size + 1);
-    fread(json_str, 1, file_size, file);
-    json_str[file_size] = 0;
+    if (!json_str) {
+        fclose(file);
+        return NULL;
+    }
+    size_t bytes_read = fread(json_str, 1, file_size, file);
     fclose(file);
+    json_str[file_size] = 0;
+    
+    if (bytes_read != (size_t)file_size) {
+        fprintf(stderr, "Failed to read complete unicode indexer file\n");
+        free(json_str);
+        return NULL;
+    }
     
     cJSON* json = cJSON_Parse(json_str);
     free(json_str);
@@ -334,7 +345,16 @@ UnicodeProcessor* unicode_processor_create(const char* unicode_indexer_json_path
     int array_size = cJSON_GetArraySize(json);
     
     UnicodeProcessor* processor = malloc(sizeof(UnicodeProcessor));
+    if (!processor) {
+        cJSON_Delete(json);
+        return NULL;
+    }
     processor->indexer = malloc(array_size * sizeof(int64_t));
+    if (!processor->indexer) {
+        free(processor);
+        cJSON_Delete(json);
+        return NULL;
+    }
     processor->indexer_size = array_size;
     
     for (int i = 0; i < array_size; i++) {
@@ -366,9 +386,20 @@ int unicode_processor_call(
     int* text_mask_channels,
     int* text_mask_len
 ) {
+    if (!processor || !text_list || !lang_list || batch_size <= 0) {
+        return -1;
+    }
+    
     char** processed_texts = malloc(batch_size * sizeof(char*));
     uint16_t** unicode_vals = malloc(batch_size * sizeof(uint16_t*));
     size_t* unicode_counts = malloc(batch_size * sizeof(size_t));
+    
+    if (!processed_texts || !unicode_vals || !unicode_counts) {
+        free(processed_texts);
+        free(unicode_vals);
+        free(unicode_counts);
+        return -1;
+    }
     
     for (int i = 0; i < batch_size; i++) {
         processed_texts[i] = preprocess_text(text_list[i], lang_list[i]);
@@ -383,6 +414,17 @@ int unicode_processor_call(
             return -1;
         }
         unicode_vals[i] = text_to_unicode_values(processed_texts[i], &unicode_counts[i]);
+        if (!unicode_vals[i]) {
+            free(processed_texts[i]);
+            for (int j = 0; j < i; j++) {
+                free(processed_texts[j]);
+                free(unicode_vals[j]);
+            }
+            free(processed_texts);
+            free(unicode_vals);
+            free(unicode_counts);
+            return -1;
+        }
     }
     
     int64_t max_len = 0;
@@ -393,8 +435,33 @@ int unicode_processor_call(
     }
     
     int64_t** text_ids = malloc(batch_size * sizeof(int64_t*));
+    if (!text_ids) {
+        for (int i = 0; i < batch_size; i++) {
+            free(processed_texts[i]);
+            free(unicode_vals[i]);
+        }
+        free(processed_texts);
+        free(unicode_vals);
+        free(unicode_counts);
+        return -1;
+    }
+    
     for (int i = 0; i < batch_size; i++) {
         text_ids[i] = calloc(max_len, sizeof(int64_t));
+        if (!text_ids[i]) {
+            for (int j = 0; j < i; j++) {
+                free(text_ids[j]);
+            }
+            free(text_ids);
+            for (int j = 0; j < batch_size; j++) {
+                free(processed_texts[j]);
+                free(unicode_vals[j]);
+            }
+            free(processed_texts);
+            free(unicode_vals);
+            free(unicode_counts);
+            return -1;
+        }
         for (size_t j = 0; j < unicode_counts[i]; j++) {
             if (unicode_vals[i][j] < processor->indexer_size) {
                 text_ids[i][j] = processor->indexer[unicode_vals[i][j]];
@@ -402,7 +469,39 @@ int unicode_processor_call(
         }
     }
     
-    float*** text_mask = length_to_mask((const int64_t*)unicode_counts, batch_size, max_len);
+    // Convert size_t to int64_t for length_to_mask
+    int64_t* lengths = malloc(batch_size * sizeof(int64_t));
+    if (!lengths) {
+        for (int i = 0; i < batch_size; i++) {
+            free(text_ids[i]);
+            free(processed_texts[i]);
+            free(unicode_vals[i]);
+        }
+        free(text_ids);
+        free(processed_texts);
+        free(unicode_vals);
+        free(unicode_counts);
+        return -1;
+    }
+    for (int i = 0; i < batch_size; i++) {
+        lengths[i] = (int64_t)unicode_counts[i];
+    }
+    
+    float*** text_mask = length_to_mask(lengths, batch_size, max_len);
+    free(lengths);
+    
+    if (!text_mask) {
+        for (int i = 0; i < batch_size; i++) {
+            free(text_ids[i]);
+            free(processed_texts[i]);
+            free(unicode_vals[i]);
+        }
+        free(text_ids);
+        free(processed_texts);
+        free(unicode_vals);
+        free(unicode_counts);
+        return -1;
+    }
     
     for (int i = 0; i < batch_size; i++) {
         free(processed_texts[i]);

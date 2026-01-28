@@ -1,3 +1,4 @@
+#define _POSIX_C_SOURCE 200809L
 #include "supertonic.h"
 #include "wav_utils.h"
 #include <stdio.h>
