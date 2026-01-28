@@ -7,6 +7,32 @@ LDFLAGS = -lm
 # Detect OS
 UNAME_S := $(shell uname -s)
 
+# ============================================================================
+# Library Path Configuration
+# ============================================================================
+# You can specify custom library paths in three ways:
+#
+# 1. Create a Makefile.local file (recommended for persistent settings):
+#    echo "ONNXRUNTIME_ROOT = /path/to/onnxruntime" > Makefile.local
+#    echo "CJSON_ROOT = /path/to/cjson" >> Makefile.local
+#
+# 2. Pass as command-line arguments:
+#    make ONNXRUNTIME_ROOT=/path/to/onnxruntime
+#
+# 3. Set as environment variables:
+#    export ONNXRUNTIME_ROOT=/path/to/onnxruntime
+#    make
+#
+# Examples of ONNXRUNTIME_ROOT paths:
+#   - System install: /usr/local
+#   - Homebrew (macOS): /opt/homebrew (or /usr/local)
+#   - Downloaded package: /home/user/Downloads/onnxruntime-linux-x64-1.23.2
+#   - Custom install: /opt/onnxruntime
+# ============================================================================
+
+# Load user-specific settings if Makefile.local exists
+-include Makefile.local
+
 # Platform-specific settings
 ifeq ($(UNAME_S),Darwin)
     # macOS
@@ -35,7 +61,7 @@ AUDIOBOOK_SRC = audiobook_generator.c
 AUDIOBOOK_BIN = audiobook_generator
 
 # Targets
-.PHONY: all clean
+.PHONY: all clean help show-config
 
 all: $(EXAMPLE_BIN) $(AUDIOBOOK_BIN)
 
@@ -65,17 +91,67 @@ help:
 	@echo "Supertonic TTS C Implementation Makefile"
 	@echo ""
 	@echo "Usage:"
-	@echo "  make              - Build the example executable"
+	@echo "  make              - Build all executables"
 	@echo "  make clean        - Remove build artifacts"
 	@echo "  make help         - Show this help message"
+	@echo "  make show-config  - Display current configuration"
 	@echo ""
-	@echo "Environment variables:"
-	@echo "  ONNXRUNTIME_ROOT  - Path to ONNX Runtime installation (default: /usr/local)"
-	@echo "  CJSON_ROOT        - Path to cJSON installation (default: /usr/local)"
+	@echo "Configuring Library Paths:"
 	@echo ""
-	@echo "Example:"
-	@echo "  make ONNXRUNTIME_ROOT=/opt/onnxruntime CJSON_ROOT=/opt/cjson"
+	@echo "Method 1: Create Makefile.local (recommended for persistent settings)"
+	@echo "  echo 'ONNXRUNTIME_ROOT = /home/user/Downloads/onnxruntime-linux-x64-1.23.2' > Makefile.local"
+	@echo "  echo 'CJSON_ROOT = /usr/local' >> Makefile.local"
+	@echo "  make"
 	@echo ""
+	@echo "Method 2: Command-line arguments (temporary)"
+	@echo "  make ONNXRUNTIME_ROOT=/path/to/onnxruntime CJSON_ROOT=/path/to/cjson"
+	@echo ""
+	@echo "Method 3: Environment variables"
+	@echo "  export ONNXRUNTIME_ROOT=/path/to/onnxruntime"
+	@echo "  make"
+	@echo ""
+	@echo "Common ONNXRUNTIME_ROOT paths:"
+	@echo "  - System install:        /usr/local"
+	@echo "  - Homebrew (macOS):      /opt/homebrew"
+	@echo "  - Downloaded package:    /home/user/Downloads/onnxruntime-linux-x64-1.23.2"
+	@echo "  - Custom installation:   /opt/onnxruntime"
+	@echo ""
+	@echo "Current defaults:"
+	@echo "  ONNXRUNTIME_ROOT = $(ONNXRUNTIME_ROOT)"
+	@echo "  CJSON_ROOT = $(CJSON_ROOT)"
+	@echo ""
+
+# Show current configuration
+show-config:
+	@echo "Current Build Configuration:"
+	@echo "  OS:               $(UNAME_S)"
+	@echo "  CC:               $(CC)"
+	@echo "  ONNXRUNTIME_ROOT: $(ONNXRUNTIME_ROOT)"
+	@echo "  CJSON_ROOT:       $(CJSON_ROOT)"
+	@echo "  CFLAGS:           $(CFLAGS)"
+	@echo "  LDFLAGS:          $(LDFLAGS)"
+	@echo ""
+	@echo "Checking library paths:"
+	@if [ -d "$(ONNXRUNTIME_ROOT)/include" ]; then \
+		echo "  ✓ ONNX Runtime include found: $(ONNXRUNTIME_ROOT)/include"; \
+	else \
+		echo "  ✗ ONNX Runtime include NOT found: $(ONNXRUNTIME_ROOT)/include"; \
+	fi
+	@if [ -d "$(ONNXRUNTIME_ROOT)/lib" ]; then \
+		echo "  ✓ ONNX Runtime lib found: $(ONNXRUNTIME_ROOT)/lib"; \
+	else \
+		echo "  ✗ ONNX Runtime lib NOT found: $(ONNXRUNTIME_ROOT)/lib"; \
+	fi
+	@if [ -d "$(CJSON_ROOT)/include" ]; then \
+		echo "  ✓ cJSON include found: $(CJSON_ROOT)/include"; \
+	else \
+		echo "  ✗ cJSON include NOT found: $(CJSON_ROOT)/include"; \
+	fi
+	@if [ -d "$(CJSON_ROOT)/lib" ]; then \
+		echo "  ✓ cJSON lib found: $(CJSON_ROOT)/lib"; \
+	else \
+		echo "  ✗ cJSON lib NOT found: $(CJSON_ROOT)/lib"; \
+	fi
 
 # Dependencies
 supertonic.o: supertonic.c supertonic.h wav_utils.h

@@ -82,15 +82,63 @@ git clone https://huggingface.co/Supertone/supertonic-2 assets
 make
 ```
 
-This will compile all source files and create the `example_onnx` executable.
+This will compile all source files and create both executables: `example_onnx` and `audiobook_generator`.
 
 ### Custom Library Paths
 
-If your libraries are installed in non-standard locations:
+If your libraries are installed in non-standard locations (e.g., downloaded ONNX Runtime package), you have three options:
+
+#### Option 1: Create Makefile.local (Recommended)
+
+This method saves your settings so you don't have to specify them every time:
 
 ```bash
-make ONNXRUNTIME_ROOT=/path/to/onnxruntime CJSON_ROOT=/path/to/cjson
+# Create a Makefile.local with your custom paths
+cat > Makefile.local << EOF
+ONNXRUNTIME_ROOT = /home/user/Downloads/onnxruntime-linux-x64-1.23.2
+CJSON_ROOT = /usr/local
+EOF
+
+# Now just run make normally
+make
 ```
+
+The `Makefile.local` file is ignored by git, so your personal settings won't be committed.
+
+#### Option 2: Command-line Arguments
+
+Specify paths each time you build:
+
+```bash
+make ONNXRUNTIME_ROOT=/home/user/Downloads/onnxruntime-linux-x64-1.23.2 CJSON_ROOT=/usr/local
+```
+
+#### Option 3: Environment Variables
+
+Set environment variables in your shell:
+
+```bash
+export ONNXRUNTIME_ROOT=/home/user/Downloads/onnxruntime-linux-x64-1.23.2
+export CJSON_ROOT=/usr/local
+make
+```
+
+### Verifying Your Configuration
+
+Check if your library paths are correctly configured:
+
+```bash
+make show-config
+```
+
+This will display your current settings and verify that the library directories exist.
+
+### Common ONNX Runtime Locations
+
+- **System install**: `/usr/local` (default)
+- **Homebrew (macOS)**: `/opt/homebrew` or `/usr/local`
+- **Downloaded package**: `/home/user/Downloads/onnxruntime-linux-x64-gpu-1.23.2`
+- **Custom install**: `/opt/onnxruntime`
 
 ### Clean
 
