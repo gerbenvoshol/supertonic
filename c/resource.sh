@@ -76,7 +76,14 @@ if [ -d "$ASSETS_DIR" ]; then
             echo "Updating existing assets..."
             cd "$ASSETS_DIR"
             if git pull; then
-                echo -e "${GREEN}✓ Assets updated successfully${NC}"
+                echo "Pulling LFS files..."
+                if git lfs pull; then
+                    echo -e "${GREEN}✓ Assets updated successfully${NC}"
+                else
+                    echo -e "${YELLOW}⚠ Git pull succeeded but LFS pull had issues${NC}"
+                    echo "Some large files may not be downloaded. Try running:"
+                    echo "  cd $ASSETS_DIR && git lfs pull"
+                fi
             else
                 echo -e "${RED}✗ Failed to update assets${NC}"
                 exit 1
@@ -89,7 +96,14 @@ if [ -d "$ASSETS_DIR" ]; then
             echo "Downloading assets..."
             cd "$PARENT_DIR"
             if git clone https://huggingface.co/Supertone/supertonic-2 assets; then
-                echo -e "${GREEN}✓ Assets downloaded successfully${NC}"
+                echo "Pulling LFS files..."
+                cd "$ASSETS_DIR"
+                if git lfs pull; then
+                    echo -e "${GREEN}✓ Assets downloaded successfully${NC}"
+                else
+                    echo -e "${YELLOW}⚠ Clone succeeded but LFS pull had issues${NC}"
+                    echo "Some large files may not be downloaded."
+                fi
             else
                 echo -e "${RED}✗ Failed to download assets${NC}"
                 exit 1
@@ -112,7 +126,14 @@ else
     cd "$PARENT_DIR"
     if git clone https://huggingface.co/Supertone/supertonic-2 assets; then
         echo ""
-        echo -e "${GREEN}✓ Assets downloaded successfully${NC}"
+        echo "Pulling LFS files..."
+        cd "$ASSETS_DIR"
+        if git lfs pull; then
+            echo -e "${GREEN}✓ Assets downloaded successfully${NC}"
+        else
+            echo -e "${YELLOW}⚠ Clone succeeded but LFS pull had issues${NC}"
+            echo "Some large files may not be downloaded."
+        fi
     else
         echo ""
         echo -e "${RED}✗ Failed to download assets${NC}"
@@ -192,8 +213,30 @@ else
     echo "  2. Git LFS not properly initialized"
     echo "  3. Model files not pulled with Git LFS"
     echo ""
-    echo "Try running: cd $ASSETS_DIR && git lfs pull"
-    exit 1
+    echo "To fix this, run:"
+    echo "  cd $ASSETS_DIR && git lfs pull"
+    echo ""
+    echo -e "Would you like to try pulling LFS files now? (Y/n): \c"
+    read -r response
+    response=${response:-Y}
+    if [[ "$response" =~ ^[Yy]$ ]]; then
+        echo ""
+        echo "Pulling LFS files..."
+        cd "$ASSETS_DIR"
+        if git lfs pull; then
+            echo -e "${GREEN}✓ LFS files pulled successfully${NC}"
+            echo ""
+            echo "Please run this script again to verify all files are present."
+            exit 0
+        else
+            echo -e "${RED}✗ Failed to pull LFS files${NC}"
+            echo "Please check your internet connection and Git LFS installation."
+            exit 1
+        fi
+    else
+        echo "Skipping LFS pull. You can manually run: cd $ASSETS_DIR && git lfs pull"
+        exit 1
+    fi
 fi
 
 # Display summary
