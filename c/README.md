@@ -43,6 +43,37 @@ This directory contains a pure C implementation of the Supertonic Text-to-Speech
    # Or build from source: https://github.com/DaveGamble/cJSON
    ```
 
+## Downloading Resources (Models and Voice Styles)
+
+Before building and running the examples, you need to download the ONNX models and voice styles.
+
+### Automatic Download (Recommended)
+
+Use the provided script to automatically download all necessary resources:
+
+```bash
+./resource.sh
+```
+
+This script will:
+- Check if Git LFS is installed (required for large model files)
+- Download ONNX models and voice styles from Hugging Face
+- Verify that all required files are present
+- Handle updates if resources already exist
+
+### Manual Download
+
+Alternatively, you can manually download the resources:
+
+```bash
+cd ..
+git clone https://huggingface.co/Supertone/supertonic-2 assets
+```
+
+> **Note:** The Hugging Face repository uses Git LFS. Please ensure Git LFS is installed and initialized before cloning:
+> - macOS: `brew install git-lfs && git lfs install`
+> - Generic: see `https://git-lfs.com` for installers
+
 ## Building
 
 ### Default Build
