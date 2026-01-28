@@ -1179,7 +1179,7 @@ static SynthesisResult* tts_infer(
     OrtValue* dp_inputs[] = {text_ids_tensor, style_dp_tensor, text_mask_tensor};
     OrtValue* dp_outputs = NULL;
     
-    OrtStatus* status = g_ort->Run(tts->dp_session, NULL, dp_input_names, 
+    status = g_ort->Run(tts->dp_session, NULL, dp_input_names, 
                                      (const OrtValue* const*)dp_inputs, 3,
                                      dp_output_names, 1, &dp_outputs);
     
