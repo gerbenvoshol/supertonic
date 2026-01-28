@@ -155,10 +155,10 @@ REQUIRED_DIRS=(
 )
 
 REQUIRED_FILES=(
-    "onnx/config.json"
-    "onnx/dp.onnx"
-    "onnx/text_enc.onnx"
-    "onnx/vector_est.onnx"
+    "onnx/tts.json"
+    "onnx/duration_predictor.onnx"
+    "onnx/text_encoder.onnx"
+    "onnx/vector_estimator.onnx"
     "onnx/vocoder.onnx"
     "onnx/unicode_indexer.json"
     "voice_styles/M1.json"
