@@ -692,9 +692,19 @@ Config* load_cfgs(const char* onnx_dir) {
     fseek(file, 0, SEEK_SET);
     
     char* json_str = malloc(file_size + 1);
-    fread(json_str, 1, file_size, file);
-    json_str[file_size] = 0;
+    if (!json_str) {
+        fclose(file);
+        return NULL;
+    }
+    size_t bytes_read = fread(json_str, 1, file_size, file);
     fclose(file);
+    json_str[file_size] = 0;
+    
+    if (bytes_read != (size_t)file_size) {
+        fprintf(stderr, "Failed to read complete config file\n");
+        free(json_str);
+        return NULL;
+    }
     
     cJSON* json = cJSON_Parse(json_str);
     free(json_str);
@@ -705,6 +715,10 @@ Config* load_cfgs(const char* onnx_dir) {
     }
     
     Config* cfg = malloc(sizeof(Config));
+    if (!cfg) {
+        cJSON_Delete(json);
+        return NULL;
+    }
     
     cJSON* ae = cJSON_GetObjectItem(json, "ae");
     cfg->ae.sample_rate = cJSON_GetObjectItem(ae, "sample_rate")->valueint;
@@ -747,9 +761,19 @@ Style* load_voice_style(const char** voice_style_paths, int count, int verbose) 
     fseek(first_file, 0, SEEK_SET);
     
     char* json_str = malloc(file_size + 1);
-    fread(json_str, 1, file_size, first_file);
-    json_str[file_size] = 0;
+    if (!json_str) {
+        fclose(first_file);
+        return NULL;
+    }
+    size_t bytes_read = fread(json_str, 1, file_size, first_file);
     fclose(first_file);
+    json_str[file_size] = 0;
+    
+    if (bytes_read != (size_t)file_size) {
+        fprintf(stderr, "Failed to read complete voice style file\n");
+        free(json_str);
+        return NULL;
+    }
     
     cJSON* first_json = cJSON_Parse(json_str);
     free(json_str);
@@ -785,9 +809,25 @@ Style* load_voice_style(const char** voice_style_paths, int count, int verbose) 
         fseek(file, 0, SEEK_SET);
         
         json_str = malloc(file_size + 1);
-        fread(json_str, 1, file_size, file);
-        json_str[file_size] = 0;
+        if (!json_str) {
+            fclose(file);
+            free(ttl);
+            free(dp);
+            cJSON_Delete(first_json);
+            return NULL;
+        }
+        bytes_read = fread(json_str, 1, file_size, file);
         fclose(file);
+        json_str[file_size] = 0;
+        
+        if (bytes_read != (size_t)file_size) {
+            fprintf(stderr, "Failed to read voice style file %d\n", i);
+            free(json_str);
+            free(ttl);
+            free(dp);
+            cJSON_Delete(first_json);
+            return NULL;
+        }
         
         cJSON* json = cJSON_Parse(json_str);
         free(json_str);
@@ -1122,11 +1162,18 @@ static SynthesisResult* tts_infer(
     OrtValue* text_mask_tensor = array_to_tensor_3d(memory_info, text_mask, text_mask_batch, text_mask_channels, text_mask_len);
     
     OrtValue* style_dp_tensor = NULL;
-    g_ort->CreateTensorWithDataAsOrtValue(
+    status = g_ort->CreateTensorWithDataAsOrtValue(
         memory_info, style->dp_data, style->dp_data_size * sizeof(float),
         style->dp_shape, style->dp_shape_len,
         ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT, &style_dp_tensor
     );
+    if (status != NULL) {
+        fprintf(stderr, "Error creating style_dp tensor: %s\n", g_ort->GetErrorMessage(status));
+        g_ort->ReleaseStatus(status);
+        g_ort->ReleaseValue(text_ids_tensor);
+        g_ort->ReleaseValue(text_mask_tensor);
+        return NULL;
+    }
     
     const char* dp_input_names[] = {"text_ids", "style_dp", "text_mask"};
     const char* dp_output_names[] = {"duration"};
@@ -1160,11 +1207,18 @@ static SynthesisResult* tts_infer(
     text_mask_tensor = array_to_tensor_3d(memory_info, text_mask, text_mask_batch, text_mask_channels, text_mask_len);
     
     OrtValue* style_ttl_tensor = NULL;
-    g_ort->CreateTensorWithDataAsOrtValue(
+    status = g_ort->CreateTensorWithDataAsOrtValue(
         memory_info, style->ttl_data, style->ttl_data_size * sizeof(float),
         style->ttl_shape, style->ttl_shape_len,
         ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT, &style_ttl_tensor
     );
+    if (status != NULL) {
+        fprintf(stderr, "Error creating style_ttl tensor: %s\n", g_ort->GetErrorMessage(status));
+        g_ort->ReleaseStatus(status);
+        g_ort->ReleaseValue(text_ids_tensor);
+        g_ort->ReleaseValue(text_mask_tensor);
+        return NULL;
+    }
     
     const char* text_enc_input_names[] = {"text_ids", "style_ttl", "text_mask"};
     const char* text_enc_output_names[] = {"text_emb"};
