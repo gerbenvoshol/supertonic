@@ -6,7 +6,7 @@
 #include <math.h>
 #include <ctype.h>
 #include <time.h>
-#include <cjson/cJSON.h>
+#include "vendor/cjson/cJSON.h"
 
 /* Available languages */
 const char* AVAILABLE_LANGS[] = {"en", "ko", "es", "pt", "fr"};

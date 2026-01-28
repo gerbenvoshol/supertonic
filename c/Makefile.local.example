@@ -17,8 +17,4 @@
 #   - Custom install: ONNXRUNTIME_ROOT = /opt/onnxruntime
 ONNXRUNTIME_ROOT = /usr/local
 
-# cJSON installation path
-# Examples:
-#   - System install: CJSON_ROOT = /usr/local
-#   - Custom install: CJSON_ROOT = /opt/cjson
-CJSON_ROOT = /usr/local
+# Note: cJSON is now bundled in vendor/cjson/ and does not require configuration

@@ -32,16 +32,7 @@ This directory contains a pure C implementation of the Supertonic Text-to-Speech
    # Extract and install to /usr/local or specify ONNXRUNTIME_ROOT
    ```
 
-2. **cJSON** - For JSON parsing
-   ```bash
-   # macOS (Homebrew)
-   brew install cjson
-   
-   # Linux (Ubuntu/Debian)
-   sudo apt-get install libcjson-dev
-   
-   # Or build from source: https://github.com/DaveGamble/cJSON
-   ```
+**Note:** cJSON is now bundled in `vendor/cjson/` and no longer requires separate installation!
 
 ## Downloading Resources (Models and Voice Styles)
 
