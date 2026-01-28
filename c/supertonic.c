@@ -811,9 +811,8 @@ Style* load_voice_style(const char** voice_style_paths, int count, int verbose) 
         json_str = malloc(file_size + 1);
         if (!json_str) {
             fclose(file);
-            free(ttl);
-            free(dp);
-            cJSON_Delete(first_json);
+            free(ttl_flat);
+            free(dp_flat);
             return NULL;
         }
         bytes_read = fread(json_str, 1, file_size, file);
@@ -823,9 +822,8 @@ Style* load_voice_style(const char** voice_style_paths, int count, int verbose) 
         if (bytes_read != (size_t)file_size) {
             fprintf(stderr, "Failed to read voice style file %d\n", i);
             free(json_str);
-            free(ttl);
-            free(dp);
-            cJSON_Delete(first_json);
+            free(ttl_flat);
+            free(dp_flat);
             return NULL;
         }
         
@@ -1141,6 +1139,7 @@ static SynthesisResult* tts_infer(
     float speed
 ) {
     const OrtApi* g_ort = OrtGetApiBase()->GetApi(ORT_API_VERSION);
+    OrtStatus* status = NULL;
     
     if (batch_size != style->ttl_shape[0]) {
         fprintf(stderr, "Batch size mismatch\n");
