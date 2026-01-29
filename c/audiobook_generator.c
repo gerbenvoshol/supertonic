@@ -2,11 +2,12 @@
  * Audiobook Generator for Supertonic TTS
  * 
  * Reads text files and generates complete audiobooks with:
- * - Automatic pauses at punctuation marks
+ * - Automatic pauses at punctuation marks (optional)
  * - Paragraph breaks
  * - Custom pause directives [PAUSE:ms]
  * - Sentence-by-sentence processing
  * - Real-time progress display
+ * - Manual control with --no-auto-pause option
  */
 
 #define _POSIX_C_SOURCE 200809L
@@ -38,6 +39,7 @@ typedef struct {
     char* lang;
     float speed;
     int steps;
+    int no_auto_pause;  /* Disable automatic pause insertion */
 } AudiobookArgs;
 
 /* Statistics tracking */
@@ -178,7 +180,7 @@ static void remove_pause_directives(char* text) {
 }
 
 /* Parse text into sentences with pause information */
-static SentenceArray* parse_text_to_sentences(const char* text) {
+static SentenceArray* parse_text_to_sentences(const char* text, int no_auto_pause) {
     SentenceArray* sentences = sentence_array_create();
     if (!sentences) return NULL;
     
@@ -215,7 +217,8 @@ static SentenceArray* parse_text_to_sentences(const char* text) {
                     buffer[buffer_pos] = '\0';
                     char* trimmed = trim_whitespace(buffer);
                     if (strlen(trimmed) > 0) {
-                        sentence_array_add(sentences, trimmed, PAUSE_PARAGRAPH);
+                        float pause = no_auto_pause ? 0.0f : PAUSE_PARAGRAPH;
+                        sentence_array_add(sentences, trimmed, pause);
                     }
                     buffer_pos = 0;
                 }
@@ -244,7 +247,7 @@ static SentenceArray* parse_text_to_sentences(const char* text) {
                 buffer[buffer_pos] = '\0';
                 char* trimmed = trim_whitespace(buffer);
                 if (strlen(trimmed) > 0) {
-                    float pause = get_pause_for_punctuation(*p);
+                    float pause = no_auto_pause ? 0.0f : get_pause_for_punctuation(*p);
                     sentence_array_add(sentences, trimmed, pause);
                 }
                 buffer_pos = 0;
@@ -353,7 +356,8 @@ static AudiobookArgs parse_args(int argc, char* argv[]) {
         .onnx_dir = "../assets/onnx",
         .lang = "en",
         .speed = 1.05f,
-        .steps = 5
+        .steps = 5,
+        .no_auto_pause = 0
     };
     
     for (int i = 1; i < argc; i++) {
@@ -371,25 +375,70 @@ static AudiobookArgs parse_args(int argc, char* argv[]) {
             args.speed = atof(argv[++i]);
         } else if (strcmp(argv[i], "--steps") == 0 && i + 1 < argc) {
             args.steps = atoi(argv[++i]);
+        } else if (strcmp(argv[i], "--no-auto-pause") == 0) {
+            args.no_auto_pause = 1;
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
-            printf("Audiobook Generator for Supertonic TTS\n\n");
+            printf("=== Supertonic Audiobook Generator ===\n\n");
+            printf("Converts text files into audiobooks with natural speech pacing.\n\n");
             printf("Usage: %s --input <file> [OPTIONS]\n\n", argv[0]);
+            
             printf("Required:\n");
-            printf("  --input <file>      Input text file\n\n");
+            printf("  --input <file>          Input text file to convert\n\n");
+            
             printf("Options:\n");
-            printf("  --output <file>     Output WAV file (default: audiobook.wav)\n");
-            printf("  --voice <file>      Voice style JSON (default: ../assets/voice_styles/M1.json)\n");
-            printf("  --onnx-dir <dir>    ONNX model directory (default: ../assets/onnx)\n");
-            printf("  --lang <code>       Language: en, ko, es, pt, fr (default: en)\n");
-            printf("  --speed <float>     Speech speed (default: 1.05)\n");
-            printf("  --steps <int>       Inference steps (default: 5)\n");
-            printf("  --help, -h          Show this help message\n\n");
-            printf("Features:\n");
-            printf("  - Automatic pauses: period/!/? (500ms), comma (250ms), ;/: (350ms)\n");
-            printf("  - Paragraph breaks: 800ms pause\n");
-            printf("  - Custom pauses: [PAUSE:1000] for 1000ms pause\n");
-            printf("  - Real-time progress display\n\n");
+            printf("  --output <file>         Output WAV file (default: audiobook.wav)\n");
+            printf("  --voice <file>          Voice style JSON file\n");
+            printf("                          (default: ../assets/voice_styles/M1.json)\n");
+            printf("  --onnx-dir <dir>        ONNX model directory (default: ../assets/onnx)\n");
+            printf("  --lang <code>           Language code (default: en)\n");
+            printf("                          Supported: en, ko, es, pt, fr\n");
+            printf("  --speed <float>         Speech speed multiplier (default: 1.05)\n");
+            printf("                          Range: 0.5 - 2.0 (1.0 = normal speed)\n");
+            printf("  --steps <int>           Inference steps for quality (default: 5)\n");
+            printf("                          More steps = higher quality but slower\n");
+            printf("  --no-auto-pause         Disable automatic pause insertion\n");
+            printf("  --help, -h              Show this help message\n\n");
+            
+            printf("Automatic Pause Features (when enabled):\n");
+            printf("  • Period/Exclamation/Question: 500ms pause\n");
+            printf("  • Comma:                       250ms pause\n");
+            printf("  • Semicolon/Colon:             350ms pause\n");
+            printf("  • Paragraph breaks (empty line): 800ms pause\n");
+            printf("  • Custom pauses: [PAUSE:1000] for 1000ms pause (always works)\n\n");
+            
+            printf("When to use --no-auto-pause:\n");
+            printf("  • Text with non-standard punctuation usage\n");
+            printf("  • When you want complete control using only [PAUSE:ms] directives\n");
+            printf("  • Text that already has natural pacing\n");
+            printf("  • Fast-paced narration without breaks\n\n");
+            
+            printf("Examples:\n");
+            printf("  # Basic usage with automatic pauses\n");
+            printf("  %s --input story.txt --output story.wav\n\n", argv[0]);
+            
+            printf("  # Use female voice and faster speech\n");
+            printf("  %s --input book.txt --voice ../assets/voice_styles/F1.json --speed 1.2\n\n", argv[0]);
+            
+            printf("  # Disable automatic pauses, use only manual control\n");
+            printf("  %s --input script.txt --no-auto-pause\n\n", argv[0]);
+            
+            printf("  # Spanish audiobook with custom settings\n");
+            printf("  %s --input libro.txt --lang es --speed 1.0 --steps 7\n\n", argv[0]);
+            
+            printf("Text File Format Tips:\n");
+            printf("  • One paragraph per logical section\n");
+            printf("  • Use double line breaks (empty line) for chapter/section breaks\n");
+            printf("  • Add [PAUSE:ms] directives for custom timing (e.g., dramatic pauses)\n");
+            printf("  • Clean text works best - remove excessive formatting\n\n");
+            
+            printf("Output:\n");
+            printf("  • WAV format, 24kHz sample rate, mono\n");
+            printf("  • Real-time progress bar during generation\n");
+            printf("  • Statistics: duration, processing time, RTF, file size\n\n");
+            
             exit(0);
+        } else {
+            fprintf(stderr, "Warning: Unknown option '%s' (use --help for usage)\n", argv[i]);
         }
     }
     
@@ -418,7 +467,7 @@ int main(int argc, char* argv[]) {
     
     /* Parse text into sentences */
     printf("Parsing text into sentences...\n");
-    SentenceArray* sentences = parse_text_to_sentences(text_content);
+    SentenceArray* sentences = parse_text_to_sentences(text_content, args.no_auto_pause);
     free(text_content);
     
     if (!sentences || sentences->count == 0) {
@@ -470,6 +519,7 @@ int main(int argc, char* argv[]) {
     printf("  Language: %s\n", args.lang);
     printf("  Speed: %.2fx\n", args.speed);
     printf("  Steps: %d\n", args.steps);
+    printf("  Auto-pause: %s\n", args.no_auto_pause ? "disabled" : "enabled");
     printf("  Output: %s\n\n", args.output_file);
     
     /* Create memory info */
@@ -585,6 +635,8 @@ int main(int argc, char* argv[]) {
     printf("Processing time: %.2f seconds\n", stats.total_processing_time);
     printf("Real-time factor: %.3fx\n", 
            stats.total_processing_time / stats.total_audio_duration);
+    printf("Pause mode: %s\n", args.no_auto_pause ? 
+           "Manual only (custom directives)" : "Automatic + custom directives");
     printf("Sample rate: %d Hz\n", DEFAULT_SAMPLE_RATE);
     printf("Total samples: %zu\n", stats.total_samples);
     printf("File size: %.2f MB\n", 
