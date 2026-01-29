@@ -258,6 +258,165 @@ Use `./example_onnx --list-voices` to see all available voices on your system.
     --batch
 ```
 
+## Audiobook Generator
+
+The `audiobook_generator` program converts text files into complete audiobooks with intelligent pause insertion and chapter handling.
+
+### Features
+
+- **Automatic Pause Insertion**: Natural pauses at punctuation marks (can be disabled)
+- **Paragraph Detection**: Longer pauses for paragraph breaks
+- **Custom Pause Directives**: `[PAUSE:ms]` for precise timing control
+- **Sentence-by-Sentence Processing**: Memory-efficient handling of large texts
+- **Real-time Progress**: Visual progress bar with statistics
+- **Flexible Control**: Enable or disable automatic pauses
+
+### Quick Start
+
+```bash
+# Basic usage with automatic pauses
+./audiobook_generator --input story.txt
+
+# Show help and all options
+./audiobook_generator --help
+```
+
+### Command-line Options
+
+- `--input <file>` - **Required**: Input text file to convert
+- `--output <file>` - Output WAV file (default: audiobook.wav)
+- `--voice <file>` - Voice style JSON (default: ../assets/voice_styles/M1.json)
+- `--onnx-dir <dir>` - ONNX model directory (default: ../assets/onnx)
+- `--lang <code>` - Language: en, ko, es, pt, fr (default: en)
+- `--speed <float>` - Speech speed multiplier (default: 1.05, range: 0.5-2.0)
+- `--steps <int>` - Inference steps for quality (default: 5, more = higher quality)
+- `--no-auto-pause` - Disable automatic pause insertion
+- `--help, -h` - Show comprehensive help message
+
+### Automatic Pause Behavior
+
+When automatic pauses are **enabled** (default):
+- **Period/Exclamation/Question** (`.!?`): 500ms pause
+- **Comma** (`,`): 250ms pause
+- **Semicolon/Colon** (`;:`): 350ms pause
+- **Paragraph breaks** (empty line): 800ms pause
+- **Custom directives** (`[PAUSE:ms]`): Always work
+
+When automatic pauses are **disabled** (`--no-auto-pause`):
+- No automatic pauses at punctuation
+- No automatic paragraph break pauses
+- Custom `[PAUSE:ms]` directives still work
+- Gives complete manual control
+
+### When to Use `--no-auto-pause`
+
+Use this option when:
+- Text has non-standard punctuation usage
+- You want complete control using only `[PAUSE:ms]` directives
+- Text already has natural pacing
+- Creating fast-paced narration without breaks
+- Punctuation is used for formatting rather than pauses
+
+### Usage Examples
+
+**Basic audiobook with automatic pauses:**
+```bash
+./audiobook_generator --input story.txt --output story.wav
+```
+
+**Use female voice with faster speech:**
+```bash
+./audiobook_generator --input book.txt \
+    --voice ../assets/voice_styles/F1.json \
+    --speed 1.2
+```
+
+**Manual pause control only:**
+```bash
+./audiobook_generator --input script.txt --no-auto-pause
+```
+
+**Spanish audiobook with high quality:**
+```bash
+./audiobook_generator --input libro.txt \
+    --lang es \
+    --speed 1.0 \
+    --steps 7 \
+    --output libro.wav
+```
+
+### Text File Format
+
+For best results, format your text file as follows:
+
+**Paragraph Structure:**
+```
+This is the first paragraph. It contains multiple sentences.
+Another sentence in the same paragraph.
+
+This is a new paragraph after an empty line.
+The generator will add an 800ms pause for the paragraph break.
+```
+
+**Custom Pauses:**
+```
+This sentence ends with a dramatic pause. [PAUSE:1500]
+After 1.5 seconds, the story continues.
+
+You can add pauses anywhere. [PAUSE:500] Even mid-sentence.
+```
+
+**Chapter Breaks:**
+```
+This is the end of chapter one.
+
+[PAUSE:2000]
+
+Chapter Two
+
+The story continues after a 2-second pause.
+```
+
+### Tips for Best Results
+
+1. **Clean Text**: Remove excessive formatting, headers, and page numbers
+2. **One Paragraph Per Section**: Use natural paragraph breaks
+3. **Double Line Breaks**: Use empty lines between logical sections
+4. **Custom Pauses**: Add `[PAUSE:ms]` for dramatic effect or chapter breaks
+5. **Voice Selection**: Try different voices (M1, F1) for different characters
+6. **Speed Adjustment**: 1.0 = normal, 1.2 = faster, 0.9 = slower
+7. **Quality Steps**: Use 5-7 steps for good quality, higher for critical productions
+
+### Output Format
+
+- **Format**: WAV (uncompressed audio)
+- **Sample Rate**: 24,000 Hz
+- **Channels**: Mono
+- **Bit Depth**: 16-bit PCM
+
+### Statistics Output
+
+After generation, you'll see statistics including:
+- Sentences processed
+- Audio duration (seconds and minutes)
+- Processing time
+- Real-time factor (speed of generation)
+- Pause mode (automatic or manual)
+- Sample rate and file size
+
+Example output:
+```
+=== Statistics ===
+Sentences processed: 42 / 42
+Audio duration: 125.34 seconds (2.09 minutes)
+Processing time: 45.67 seconds
+Real-time factor: 0.364x
+Pause mode: Automatic + custom directives
+Sample rate: 24000 Hz
+Total samples: 3008160
+File size: 5.73 MB
+```
+
 ## API Reference
 
 ### Core Structures
