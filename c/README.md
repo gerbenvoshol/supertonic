@@ -139,44 +139,114 @@ make clean
 
 ## Usage
 
-### Basic Usage
+### Quick Start
+
+The simplest way to get started is to run the example with default settings:
 
 ```bash
 ./example_onnx
 ```
 
-This uses default settings:
-- ONNX models from `../assets/onnx`
-- Voice style from `../assets/voice_styles/M1.json`
-- Default text in English
-- 4 test iterations
-- Output saved to `results/` directory
+Or with custom text:
+
+```bash
+./example_onnx --text "Hello, world! This is my first text-to-speech test."
+```
+
+### Getting Help
+
+Show all available options and examples:
+
+```bash
+./example_onnx --help
+```
+
+List available voice styles:
+
+```bash
+./example_onnx --list-voices
+```
+
+### Basic Examples
+
+**Simple text-to-speech:**
+```bash
+./example_onnx --text "Welcome to Supertonic!"
+```
+
+**Use a female voice:**
+```bash
+./example_onnx --text "Hello!" --voice-style ../assets/voice_styles/F1.json
+```
+
+**Change language and speed:**
+```bash
+./example_onnx --text "Hola mundo" --lang es --speed 1.2
+```
+
+**Save to a specific file:**
+```bash
+./example_onnx --text "Testing output" --output my_speech.wav
+```
+
+**Multiple iterations for testing:**
+```bash
+./example_onnx --text "Test" --n-test 5
+```
 
 ### Advanced Usage
 
+**Multiple texts with different voices:**
+```bash
+./example_onnx \
+    --text "Hello from voice 1|Hello from voice 2" \
+    --voice-style "../assets/voice_styles/M1.json,../assets/voice_styles/F1.json"
+```
+
+**Full control over all parameters:**
 ```bash
 ./example_onnx \
     --onnx-dir ../assets/onnx \
     --voice-style "../assets/voice_styles/M1.json" \
-    --text "Hello, this is a test." \
+    --text "This is a complete example." \
     --lang "en" \
     --total-step 5 \
     --speed 1.05 \
     --n-test 1 \
-    --save-dir output
+    --output my_audio.wav
 ```
 
 ### Command-line Options
 
-- `--onnx-dir <path>` - Path to ONNX models directory
-- `--voice-style <path1,path2,...>` - Comma-separated voice style JSON files
-- `--text <text1|text2|...>` - Pipe-separated text inputs
-- `--lang <lang1,lang2,...>` - Comma-separated language codes (en, ko, es, pt, fr)
-- `--total-step <n>` - Number of denoising steps (default: 5)
+- `--help, -h` - Show help message with all options and examples
+- `--list-voices` - List all available voice styles in the assets directory
+- `--text <text>` - Text to synthesize (use `|` to separate multiple texts)
+- `--voice-style <path>` - Path to voice style JSON (use `,` to separate multiple)
+- `--lang <code>` - Language code: `en`, `ko`, `es`, `pt`, `fr` (use `,` for multiple)
 - `--speed <float>` - Speech speed factor (default: 1.05)
-- `--n-test <n>` - Number of test iterations (default: 4)
+- `--total-step <n>` - Number of denoising steps (default: 5)
+- `--n-test <n>` - Number of test iterations (default: 1)
+- `--onnx-dir <path>` - Path to ONNX models (default: ../assets/onnx)
 - `--save-dir <path>` - Output directory (default: results)
-- `--batch` - Use batch mode
+- `--output <file>` - Output WAV file (overrides --save-dir for single file)
+- `--batch` - Use batch processing mode
+
+### Available Languages
+
+- `en` - English
+- `ko` - Korean
+- `es` - Spanish
+- `pt` - Portuguese
+- `fr` - French
+
+### Available Voice Styles
+
+The default installation includes several voice styles in `../assets/voice_styles/`:
+- `M1.json` - Male voice 1
+- `F1.json` - Female voice 1
+- Additional voices may be available depending on your download
+
+Use `./example_onnx --list-voices` to see all available voices on your system.
 
 ### Batch Mode Example
 
