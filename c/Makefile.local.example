@@ -1,0 +1,20 @@
+# Makefile.local.example
+#
+# This is an example configuration file for custom library paths.
+# Copy this file to 'Makefile.local' and edit the paths to match your setup.
+#
+# Usage:
+#   cp Makefile.local.example Makefile.local
+#   # Edit Makefile.local with your paths
+#   make
+#
+
+# ONNX Runtime installation path
+# Examples:
+#   - System install: ONNXRUNTIME_ROOT = /usr/local
+#   - Homebrew (macOS): ONNXRUNTIME_ROOT = /opt/homebrew
+#   - Downloaded package: ONNXRUNTIME_ROOT = /home/user/Downloads/onnxruntime-linux-x64-1.23.2
+#   - Custom install: ONNXRUNTIME_ROOT = /opt/onnxruntime
+ONNXRUNTIME_ROOT = /usr/local
+
+# Note: cJSON is now bundled in vendor/cjson/ and does not require configuration

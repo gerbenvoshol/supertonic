@@ -6,6 +6,17 @@ assets/.gitattributes
 *.onnx
 onnx
 
+# Build artifacts
+*.o
+*.exe
+c/example_onnx
+c/audiobook_generator
+cpp/example_onnx
+
+# User-specific build configuration
+c/Makefile.local
+cpp/Makefile.local
+
 # Output files
 results
 
