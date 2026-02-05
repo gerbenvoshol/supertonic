@@ -58,11 +58,13 @@ EXAMPLE_SRC = example_onnx.c
 EXAMPLE_BIN = example_onnx
 AUDIOBOOK_SRC = audiobook_generator.c
 AUDIOBOOK_BIN = audiobook_generator
+VOICE_BUILDER_SRC = voice_builder.c
+VOICE_BUILDER_BIN = voice_builder
 
 # Targets
 .PHONY: all clean help show-config
 
-all: $(EXAMPLE_BIN) $(AUDIOBOOK_BIN)
+all: $(EXAMPLE_BIN) $(AUDIOBOOK_BIN) $(VOICE_BUILDER_BIN)
 
 $(EXAMPLE_BIN): $(OBJECTS) $(EXAMPLE_SRC)
 	$(CC) $(CFLAGS) -o $@ $(EXAMPLE_SRC) $(OBJECTS) $(LDFLAGS)
@@ -77,11 +79,18 @@ $(AUDIOBOOK_BIN): $(OBJECTS) $(AUDIOBOOK_SRC)
 	@echo "Run with: ./$(AUDIOBOOK_BIN) --input sample_text.txt"
 	@echo ""
 
+$(VOICE_BUILDER_BIN): wav_utils.o vendor/cjson/cJSON.o $(VOICE_BUILDER_SRC)
+	$(CC) $(CFLAGS) -o $@ $(VOICE_BUILDER_SRC) wav_utils.o vendor/cjson/cJSON.o -lm
+	@echo ""
+	@echo "Build successful: $(VOICE_BUILDER_BIN)"
+	@echo "Run with: ./$(VOICE_BUILDER_BIN) --input your_voice.wav"
+	@echo ""
+
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(OBJECTS) $(EXAMPLE_BIN) $(AUDIOBOOK_BIN)
+	rm -f $(OBJECTS) $(EXAMPLE_BIN) $(AUDIOBOOK_BIN) $(VOICE_BUILDER_BIN)
 	rm -rf results
 	@echo "Clean complete"
 
@@ -152,3 +161,4 @@ wav_utils.o: wav_utils.c wav_utils.h
 vendor/cjson/cJSON.o: vendor/cjson/cJSON.c vendor/cjson/cJSON.h
 example_onnx.o: example_onnx.c supertonic.h wav_utils.h
 audiobook_generator.o: audiobook_generator.c supertonic.h wav_utils.h
+voice_builder.o: voice_builder.c wav_utils.h vendor/cjson/cJSON.h
