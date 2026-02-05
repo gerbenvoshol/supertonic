@@ -1,8 +1,16 @@
 /*
- * Voice Builder for Supertonic TTS
+ * Voice Builder for Supertonic TTS - EXPERIMENTAL
  * 
- * This tool generates voice style JSON files from input WAV audio files.
- * The generated files can be used with the Supertonic TTS system.
+ * ⚠️  WARNING: This is a simplified demonstration tool that does NOT produce
+ *     high-quality voice styles. The generated styles use basic audio statistics
+ *     and will likely produce DISTORTED or POOR QUALITY speech.
+ * 
+ * For production-quality voice styles, please use the official Voice Builder at:
+ * https://supertonic.supertone.ai/voice_builder
+ * 
+ * This tool generates voice style JSON files from input WAV audio files using
+ * simplified feature extraction. It is provided for educational/experimental
+ * purposes only.
  */
 
 #include <stdio.h>
@@ -291,8 +299,13 @@ int save_voice_style_json(const VoiceStyle* style, const char* output_path) {
 
 void print_usage(const char* program_name) {
     printf("\n");
-    printf("Voice Builder for Supertonic TTS\n");
+    printf("Voice Builder for Supertonic TTS - EXPERIMENTAL\n");
     printf("=================================\n\n");
+    
+    printf("⚠️  WARNING: This tool uses simplified feature extraction.\n");
+    printf("Generated voice styles will likely produce DISTORTED speech.\n");
+    printf("For production use, visit: https://supertonic.supertone.ai/voice_builder\n\n");
+    
     printf("Generates voice style JSON files from input WAV audio files.\n\n");
     printf("Usage: %s --input <wav_file> [options]\n\n", program_name);
     printf("Required arguments:\n");
@@ -351,6 +364,14 @@ int main(int argc, char* argv[]) {
     printf("Voice Builder for Supertonic TTS\n");
     printf("========================================\n\n");
     
+    printf("⚠️  WARNING: EXPERIMENTAL TOOL\n");
+    printf("────────────────────────────────────────\n");
+    printf("This tool uses simplified feature extraction and will likely\n");
+    printf("produce DISTORTED or POOR QUALITY speech output.\n\n");
+    printf("For production-quality voice styles, please use the official\n");
+    printf("Voice Builder at: https://supertonic.supertone.ai/voice_builder\n");
+    printf("────────────────────────────────────────\n\n");
+    
     /* Load WAV file */
     printf("Loading input audio: %s\n", input_path);
     WavData* wav_data = read_wav_file(input_path);
@@ -387,8 +408,16 @@ int main(int argc, char* argv[]) {
     printf("\n========================================\n");
     printf("Voice style generation completed!\n");
     printf("========================================\n\n");
-    printf("Output file: %s\n", output_path);
-    printf("\nYou can now use this voice style with Supertonic TTS:\n");
+    printf("Output file: %s\n\n", output_path);
+    
+    printf("⚠️  IMPORTANT NOTICE:\n");
+    printf("────────────────────────────────────────\n");
+    printf("This generated voice style uses simplified feature extraction\n");
+    printf("and will likely produce DISTORTED or POOR QUALITY speech.\n\n");
+    printf("For production-quality results, please use the official\n");
+    printf("Voice Builder at: https://supertonic.supertone.ai/voice_builder\n");
+    printf("────────────────────────────────────────\n\n");
+    printf("To test (expect poor quality):\n");
     printf("  ./example_onnx --voice-style %s --text \"Hello, world!\"\n\n", output_path);
     
     return 0;

@@ -422,9 +422,28 @@ File size: 5.73 MB
 
 ## Voice Builder
 
-The `voice_builder` tool creates custom voice style JSON files from input WAV audio files. These voice styles can then be used with the Supertonic TTS system to synthesize speech in your custom voice.
+⚠️ **WARNING: EXPERIMENTAL TOOL WITH SIGNIFICANT LIMITATIONS**
 
-### Features
+The `voice_builder` tool is an **experimental demonstration** that uses simplified audio feature extraction. **It will NOT produce high-quality voice styles** and generated audio will likely be **distorted or of poor quality**.
+
+### Why It Produces Poor Quality
+
+The voice_builder uses basic audio statistics (energy, zero-crossing rate, windowed features) rather than deep learning embeddings. Real voice styles require:
+- Trained neural network encoder models
+- Proper voice embedding extraction
+- Large datasets for training
+
+The current implementation fills most of the 12,800+ features with pseudo-random values, which the TTS model interprets as noise, resulting in distorted speech.
+
+### ⭐ Recommended Alternative
+
+**For production-quality voice styles**, please use the official Voice Builder service:
+- **URL**: https://supertonic.supertone.ai/voice_builder
+- Provides high-quality voice embeddings
+- Uses trained encoder models
+- Produces clear, natural-sounding TTS output
+
+### Features (Experimental)
 
 - **WAV Input**: Supports 16-bit PCM, 8-bit PCM, and 32-bit float WAV files
 - **Audio Analysis**: Extracts voice characteristics using spectral features
@@ -531,9 +550,26 @@ The voice builder performs the following steps:
 
 ### Limitations
 
-- The voice builder creates style vectors based on audio analysis, not deep learning embeddings
-- Results may vary depending on audio quality and characteristics
-- For production use with optimal quality, consider using the official [Voice Builder](https://supertonic.supertone.ai/voice_builder) service
+**CRITICAL:** This tool is for **educational/experimental purposes only**:
+
+- ❌ **Poor Audio Quality**: Generated voice styles produce distorted or unnatural speech
+- ❌ **Not Production Ready**: Uses simplified statistics, not deep learning embeddings
+- ❌ **Random Features**: ~99% of features are pseudo-random values, not real voice characteristics
+- ❌ **Cannot Capture Voice Identity**: Basic audio stats cannot represent prosody, pitch patterns, or speaking style
+
+**The current implementation:**
+1. Extracts ~20 basic audio statistics (energy, zero-crossing rate, windowed stats)
+2. Fills remaining ~12,780 features with pseudo-random values based on audio characteristics
+3. Normalizes the resulting vector
+
+This approach fundamentally cannot produce meaningful voice embeddings. The TTS model requires deep learning-extracted features that capture voice identity, which this tool cannot provide.
+
+### Production Alternative
+
+For actual voice cloning and high-quality TTS:
+- Use the official **[Voice Builder](https://supertonic.supertone.ai/voice_builder)** service
+- Or use pre-trained voice styles from the assets directory
+- The official service uses trained encoder models to extract proper voice embeddings
 
 ### Integration with Supertonic
 
