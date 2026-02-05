@@ -414,30 +414,7 @@ int unicode_processor_call(
             return -1;
         }
         
-        // Debug: Print preprocessed text (escape angle brackets for terminal display)
-        if (strlen(text_list[i]) > 0 && text_list[i][0] == '_') {
-            fprintf(stderr, "Debug: Original text: \"%s\"\n", text_list[i]);
-            // Print preprocessed text with escaped angle brackets
-            fprintf(stderr, "Debug: Preprocessed: \"");
-            for (const char* p = processed_texts[i]; *p; p++) {
-                if (*p == '<') fprintf(stderr, "&lt;");
-                else if (*p == '>') fprintf(stderr, "&gt;");
-                else fputc(*p, stderr);
-            }
-            fprintf(stderr, "\"\n");
-        }
-        
         unicode_vals[i] = text_to_unicode_values(processed_texts[i], &unicode_counts[i]);
-        
-        // Additional debug for underscore-starting text
-        if (strlen(text_list[i]) > 0 && text_list[i][0] == '_') {
-            fprintf(stderr, "Debug: Unicode count: %zu\n", unicode_counts[i]);
-            fprintf(stderr, "Debug: First few unicode values: ");
-            for (size_t k = 0; k < (unicode_counts[i] < 10 ? unicode_counts[i] : 10); k++) {
-                fprintf(stderr, "%u ", unicode_vals[i][k]);
-            }
-            fprintf(stderr, "\n");
-        }
         
         if (!unicode_vals[i]) {
             free(processed_texts[i]);
@@ -491,22 +468,8 @@ int unicode_processor_call(
             if (unicode_vals[i][j] < processor->indexer_size) {
                 text_ids[i][j] = processor->indexer[unicode_vals[i][j]];
             } else {
-                // Debug: Unicode value not in indexer
-                if (strlen(text_list[i]) > 0 && text_list[i][0] == '_') {
-                    fprintf(stderr, "Debug: Unicode value %u at position %zu is out of range (indexer_size=%zu)\n", 
-                            unicode_vals[i][j], j, processor->indexer_size);
-                }
                 text_ids[i][j] = 0;  // Map unknown characters to 0
             }
-        }
-        
-        // Debug: Show text IDs for underscore-starting text
-        if (strlen(text_list[i]) > 0 && text_list[i][0] == '_') {
-            fprintf(stderr, "Debug: First few text IDs: ");
-            for (size_t k = 0; k < (unicode_counts[i] < 10 ? unicode_counts[i] : 10); k++) {
-                fprintf(stderr, "%lld ", (long long)text_ids[i][k]);
-            }
-            fprintf(stderr, "\n");
         }
     }
     
