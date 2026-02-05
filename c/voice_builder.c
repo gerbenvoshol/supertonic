@@ -50,6 +50,19 @@
  *   - Neural network inference in C
  *   - Significant engineering effort (~1000+ lines of code)
  * 
+ * ALTERNATIVE IMPROVEMENT APPROACHES:
+ * ===================================
+ * 
+ * Q: Could we use ONNX models to improve this?
+ * A1 (Encoder): NO - encoder models are not publicly available
+ * A2 (Optimization): Theoretically yes, but impractical:
+ *    - Start with good voice.json, optimize to match target audio
+ *    - Use simulated annealing or gradient-free optimization
+ *    - Requires: 1000+ iterations × 1-2 sec/iter = 30+ minutes
+ *    - High-dimensional search (12,928 dimensions)
+ *    - No guarantee of quality improvement
+ *    - Better to use official Voice Builder service
+ * 
  * For production-quality voice styles, please use the official Voice Builder at:
  * https://supertonic.supertone.ai/voice_builder
  * 
