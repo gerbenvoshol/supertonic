@@ -401,6 +401,12 @@ int main(int argc, char* argv[]) {
             }
             
             int wav_len = (int)(sample_rate * result->duration[b]);
+            // Ensure we don't read beyond the allocated space for this batch item
+            if (wav_len > wav_shape_1) {
+                fprintf(stderr, "Warning: Calculated wav_len (%d) exceeds wav_shape_1 (%d) for batch %d, truncating\n",
+                        wav_len, wav_shape_1, b);
+                wav_len = wav_shape_1;
+            }
             write_wav_file(output_path, result->wav + b * wav_shape_1, wav_len, sample_rate);
             
             double audio_duration = result->duration[b];

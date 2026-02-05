@@ -1468,6 +1468,15 @@ SynthesisResult* tts_call(
     int chunk_count;
     char** text_chunks = chunk_text(text, max_len, &chunk_count);
     
+    if (chunk_count > 1) {
+        fprintf(stderr, "Info: Text split into %d chunks\n", chunk_count);
+        for (int i = 0; i < chunk_count; i++) {
+            fprintf(stderr, "  Chunk %d (len=%zu): \"%.50s%s\"\n", 
+                    i, strlen(text_chunks[i]), text_chunks[i],
+                    strlen(text_chunks[i]) > 50 ? "..." : "");
+        }
+    }
+    
     float* wav_cat = NULL;
     size_t wav_cat_size = 0;
     float dur_cat = 0.0f;
