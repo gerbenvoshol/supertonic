@@ -557,12 +557,47 @@ The voice builder performs the following steps:
 - ❌ **Random Features**: ~99% of features are pseudo-random values, not real voice characteristics
 - ❌ **Cannot Capture Voice Identity**: Basic audio stats cannot represent prosody, pitch patterns, or speaking style
 
-**The current implementation:**
-1. Extracts ~20 basic audio statistics (energy, zero-crossing rate, windowed stats)
-2. Fills remaining ~12,780 features with pseudo-random values based on audio characteristics
-3. Normalizes the resulting vector
+**Technical Explanation (based on ONNX model analysis):**
 
-This approach fundamentally cannot produce meaningful voice embeddings. The TTS model requires deep learning-extracted features that capture voice identity, which this tool cannot provide.
+The TTS system uses two types of style embeddings extracted by trained neural networks:
+
+1. **style_ttl** (50×256 = 12,800 values)
+   - Used in cross-attention layers (SpeechPromptedAttention)
+   - Conditions text encoder on voice timbre, tone, prosody
+   - **Should be**: Output from speech encoder network
+     - 6 ConvNeXt blocks
+     - 4 self-attention layers  
+     - 2 cross-attention layers
+   - **Currently**: Random values from audio statistics
+
+2. **style_dp** (8×16 = 128 values)  
+   - Concatenated with text features (64+128=192)
+   - Predicts phoneme durations via MLP
+   - Conditions on speaking rate and rhythm
+   - **Should be**: Output from duration encoder network
+     - 2 attention layers
+     - 6 ConvNeXt blocks
+   - **Currently**: Random values from audio statistics
+
+**Why This Fails:**
+
+Real encoders use:
+- Mel-spectrogram extraction (FFT + mel filterbank)
+- ConvNeXt blocks (depthwise conv, layer norm, GELU activation)
+- Multi-head attention with relative positional embeddings
+- Learned representations from thousands of voice samples
+
+This C tool:
+- Extracts ~20 basic statistics (energy, ZCR, windowed means)
+- Generates ~12,780 pseudo-random values
+- Cannot capture voice identity or prosodic patterns
+
+**Proper Implementation Would Need:**
+- ONNX Runtime integration (~500 KB library)
+- Pre-trained encoder models (~50 MB)
+- Mel-spectrogram computation code (~200 lines)
+- Neural network inference infrastructure (~800+ lines)
+- Total: ~1000+ lines of additional C code
 
 ### Production Alternative
 

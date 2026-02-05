@@ -5,6 +5,51 @@
  *     high-quality voice styles. The generated styles use basic audio statistics
  *     and will likely produce DISTORTED or POOR QUALITY speech.
  * 
+ * TECHNICAL BACKGROUND (from ONNX model analysis):
+ * ================================================
+ * 
+ * The TTS system uses two style vectors to condition voice characteristics:
+ * 
+ * 1. style_ttl [1, 50, 256] = 12,800 elements
+ *    - Used in SpeechPromptedAttention (cross-attention in text encoder)
+ *    - Query from text, Key/Value from style embeddings
+ *    - Captures voice timbre, tone, and prosodic patterns
+ *    - Should be: output from trained speech encoder network
+ *    - This tool: randomly generated values based on audio statistics
+ * 
+ * 2. style_dp [1, 8, 16] = 128 elements
+ *    - Concatenated with text features [64 + 128 = 192]
+ *    - Fed through MLP to predict phoneme durations
+ *    - Captures speaking rate and rhythm patterns  
+ *    - Should be: output from trained duration encoder network
+ *    - This tool: randomly generated values based on audio statistics
+ * 
+ * WHY THIS APPROACH FAILS:
+ * ========================
+ * 
+ * Real voice styles require:
+ *   1. Mel-spectrogram extraction from audio
+ *   2. Trained encoder models (ConvNeXt + Multi-head Attention)
+ *   3. Style embeddings learned from thousands of voice samples
+ *   4. Complex neural network architectures:
+ *      - Text Encoder: 6 ConvNeXt blocks, 4 attention layers, 2 cross-attention
+ *      - Duration Predictor: 2 attention layers, 6 ConvNeXt blocks, MLP head
+ *      - Vector Estimator: 24+ layers with time conditioning
+ * 
+ * This C implementation:
+ *   - Extracts ~20 basic audio statistics (energy, ZCR, etc.)
+ *   - Fills remaining ~12,780 values with pseudo-random numbers
+ *   - Cannot capture voice identity, prosody, or style
+ * 
+ * PROPER IMPLEMENTATION WOULD REQUIRE:
+ * ====================================
+ * 
+ *   - ONNX Runtime library integration
+ *   - Loading pre-trained encoder models
+ *   - Mel-spectrogram computation
+ *   - Neural network inference in C
+ *   - Significant engineering effort (~1000+ lines of code)
+ * 
  * For production-quality voice styles, please use the official Voice Builder at:
  * https://supertonic.supertone.ai/voice_builder
  * 
