@@ -414,10 +414,17 @@ int unicode_processor_call(
             return -1;
         }
         
-        // Debug: Print preprocessed text
+        // Debug: Print preprocessed text (escape angle brackets for terminal display)
         if (strlen(text_list[i]) > 0 && text_list[i][0] == '_') {
             fprintf(stderr, "Debug: Original text: \"%s\"\n", text_list[i]);
-            fprintf(stderr, "Debug: Preprocessed: \"%s\"\n", processed_texts[i]);
+            // Print preprocessed text with escaped angle brackets
+            fprintf(stderr, "Debug: Preprocessed: \"");
+            for (const char* p = processed_texts[i]; *p; p++) {
+                if (*p == '<') fprintf(stderr, "&lt;");
+                else if (*p == '>') fprintf(stderr, "&gt;");
+                else fputc(*p, stderr);
+            }
+            fprintf(stderr, "\"\n");
         }
         
         unicode_vals[i] = text_to_unicode_values(processed_texts[i], &unicode_counts[i]);
@@ -483,6 +490,13 @@ int unicode_processor_call(
         for (size_t j = 0; j < unicode_counts[i]; j++) {
             if (unicode_vals[i][j] < processor->indexer_size) {
                 text_ids[i][j] = processor->indexer[unicode_vals[i][j]];
+            } else {
+                // Debug: Unicode value not in indexer
+                if (strlen(text_list[i]) > 0 && text_list[i][0] == '_') {
+                    fprintf(stderr, "Debug: Unicode value %u at position %zu is out of range (indexer_size=%zu)\n", 
+                            unicode_vals[i][j], j, processor->indexer_size);
+                }
+                text_ids[i][j] = 0;  // Map unknown characters to 0
             }
         }
     }
