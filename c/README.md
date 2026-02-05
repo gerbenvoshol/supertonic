@@ -428,7 +428,7 @@ The `voice_builder` tool creates custom voice style JSON files from input WAV au
 
 - **WAV Input**: Supports 16-bit PCM, 8-bit PCM, and 32-bit float WAV files
 - **Audio Analysis**: Extracts voice characteristics using spectral features
-- **Style Generation**: Creates text-to-latent (12×16=192) and duration predictor (8×16=128) style vectors
+- **Style Generation**: Creates text-to-latent (50×256=12800) and duration predictor (8×16=128) style vectors
 - **JSON Output**: Generates voice style files compatible with all Supertonic implementations
 - **Cross-platform**: Works on macOS and Linux
 
@@ -487,8 +487,8 @@ For best results, use audio that meets these requirements:
 
 The generated JSON file contains two main components:
 
-1. **style_ttl**: Text-to-latent style features (12×16 = 192 elements)
-   - Shape: [1, 12, 16]
+1. **style_ttl**: Text-to-latent style features (50×256 = 12,800 elements)
+   - Shape: [1, 50, 256]
    - Controls the voice characteristics during speech generation
    - Captures prosody, pitch patterns, and speaking style
 
@@ -501,12 +501,12 @@ Example structure:
 ```json
 {
   "style_ttl": {
-    "dims": [1, 12, 16],
-    "data": [0.666, 0.666, -0.387, ...]
+    "dims": [1, 50, 256],
+    "data": [0.012, -0.149, -0.140, ...]
   },
   "style_dp": {
     "dims": [1, 8, 16],
-    "data": [0.583, 0.583, -0.376, ...]
+    "data": [0.074, -0.588, -0.037, ...]
   }
 }
 ```
