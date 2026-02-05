@@ -421,6 +421,17 @@ int unicode_processor_call(
         }
         
         unicode_vals[i] = text_to_unicode_values(processed_texts[i], &unicode_counts[i]);
+        
+        // Additional debug for underscore-starting text
+        if (strlen(text_list[i]) > 0 && text_list[i][0] == '_') {
+            fprintf(stderr, "Debug: Unicode count: %zu\n", unicode_counts[i]);
+            fprintf(stderr, "Debug: First few unicode values: ");
+            for (size_t k = 0; k < (unicode_counts[i] < 10 ? unicode_counts[i] : 10); k++) {
+                fprintf(stderr, "%u ", unicode_vals[i][k]);
+            }
+            fprintf(stderr, "\n");
+        }
+        
         if (!unicode_vals[i]) {
             free(processed_texts[i]);
             for (int j = 0; j < i; j++) {
