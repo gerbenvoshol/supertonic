@@ -413,6 +413,13 @@ int unicode_processor_call(
             free(unicode_counts);
             return -1;
         }
+        
+        // Debug: Print preprocessed text
+        if (strlen(text_list[i]) > 0 && text_list[i][0] == '_') {
+            fprintf(stderr, "Debug: Original text: \"%s\"\n", text_list[i]);
+            fprintf(stderr, "Debug: Preprocessed: \"%s\"\n", processed_texts[i]);
+        }
+        
         unicode_vals[i] = text_to_unicode_values(processed_texts[i], &unicode_counts[i]);
         if (!unicode_vals[i]) {
             free(processed_texts[i]);
