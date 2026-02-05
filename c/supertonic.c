@@ -499,6 +499,15 @@ int unicode_processor_call(
                 text_ids[i][j] = 0;  // Map unknown characters to 0
             }
         }
+        
+        // Debug: Show text IDs for underscore-starting text
+        if (strlen(text_list[i]) > 0 && text_list[i][0] == '_') {
+            fprintf(stderr, "Debug: First few text IDs: ");
+            for (size_t k = 0; k < (unicode_counts[i] < 10 ? unicode_counts[i] : 10); k++) {
+                fprintf(stderr, "%lld ", (long long)text_ids[i][k]);
+            }
+            fprintf(stderr, "\n");
+        }
     }
     
     // Convert size_t to int64_t for length_to_mask
