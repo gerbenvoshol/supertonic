@@ -834,24 +834,53 @@ Style* load_voice_style(const char** voice_style_paths, int count, int verbose) 
         cJSON* dp_data = cJSON_GetObjectItem(cJSON_GetObjectItem(json, "style_dp"), "data");
         
         size_t ttl_idx = i * ttl_dim1 * ttl_dim2;
-        cJSON* batch;
-        cJSON_ArrayForEach(batch, ttl_data) {
-            cJSON* row;
-            cJSON_ArrayForEach(row, batch) {
-                cJSON* val;
-                cJSON_ArrayForEach(val, row) {
-                    ttl_flat[ttl_idx++] = (float)val->valuedouble;
+        
+        /* Check if data is a flat array or nested array */
+        cJSON* first_ttl = cJSON_GetArrayItem(ttl_data, 0);
+        int is_ttl_flat = (first_ttl && !cJSON_IsArray(first_ttl));
+        
+        if (is_ttl_flat) {
+            /* Flat array format from voice_builder */
+            cJSON* val;
+            cJSON_ArrayForEach(val, ttl_data) {
+                ttl_flat[ttl_idx++] = (float)val->valuedouble;
+            }
+        } else {
+            /* Nested array format from original voice styles */
+            cJSON* batch;
+            cJSON_ArrayForEach(batch, ttl_data) {
+                cJSON* row;
+                cJSON_ArrayForEach(row, batch) {
+                    cJSON* val;
+                    cJSON_ArrayForEach(val, row) {
+                        ttl_flat[ttl_idx++] = (float)val->valuedouble;
+                    }
                 }
             }
         }
         
         size_t dp_idx = i * dp_dim1 * dp_dim2;
-        cJSON_ArrayForEach(batch, dp_data) {
-            cJSON* row;
-            cJSON_ArrayForEach(row, batch) {
-                cJSON* val;
-                cJSON_ArrayForEach(val, row) {
-                    dp_flat[dp_idx++] = (float)val->valuedouble;
+        
+        /* Check if data is a flat array or nested array */
+        cJSON* first_dp = cJSON_GetArrayItem(dp_data, 0);
+        int is_dp_flat = (first_dp && !cJSON_IsArray(first_dp));
+        
+        if (is_dp_flat) {
+            /* Flat array format from voice_builder */
+            cJSON* val;
+            cJSON_ArrayForEach(val, dp_data) {
+                dp_flat[dp_idx++] = (float)val->valuedouble;
+            }
+        } else {
+            /* Nested array format from original voice styles */
+            cJSON* batch;
+            cJSON_ArrayForEach(batch, dp_data) {
+                cJSON* row;
+                cJSON_ArrayForEach(row, batch) {
+                    cJSON* val;
+                    cJSON_ArrayForEach(val, row) {
+                        dp_flat[dp_idx++] = (float)val->valuedouble;
+                    }
                 }
             }
         }
