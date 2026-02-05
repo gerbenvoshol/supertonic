@@ -13,10 +13,10 @@
 #include "wav_utils.h"
 #include "vendor/cjson/cJSON.h"
 
-#define DEFAULT_TTL_DIM1 192
-#define DEFAULT_TTL_DIM2 1
-#define DEFAULT_DP_DIM1 128
-#define DEFAULT_DP_DIM2 1
+#define DEFAULT_TTL_DIM1 12
+#define DEFAULT_TTL_DIM2 16
+#define DEFAULT_DP_DIM1 8
+#define DEFAULT_DP_DIM2 16
 
 /* Global flag to track if random seed has been initialized */
 static int g_random_seeded = 0;
@@ -312,8 +312,8 @@ void print_usage(const char* program_name) {
     printf("  %s --input my_voice.wav --output my_style.json\n\n", program_name);
     printf("Output format:\n");
     printf("  The generated JSON file contains:\n");
-    printf("  - style_ttl: Text-to-latent style features (192 dimensions)\n");
-    printf("  - style_dp: Duration predictor style features (128 dimensions)\n\n");
+    printf("  - style_ttl: Text-to-latent style features (12x16 = 192 dimensions)\n");
+    printf("  - style_dp: Duration predictor style features (8x16 = 128 dimensions)\n\n");
     printf("Usage with Supertonic:\n");
     printf("  Place the generated JSON file in the voice_styles directory and\n");
     printf("  use it with any Supertonic TTS implementation:\n\n");
