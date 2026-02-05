@@ -1,4 +1,5 @@
 #define _POSIX_C_SOURCE 200809L
+#define _DEFAULT_SOURCE
 #include "supertonic.h"
 #include "wav_utils.h"
 #include <stdio.h>
@@ -299,10 +300,25 @@ int main(int argc, char* argv[]) {
     
     const OrtApi* g_ort = OrtGetApiBase()->GetApi(ORT_API_VERSION);
     OrtEnv* env;
-    g_ort->CreateEnv(ORT_LOGGING_LEVEL_WARNING, "TTS", &env);
+    OrtStatus* status = g_ort->CreateEnv(ORT_LOGGING_LEVEL_WARNING, "TTS", &env);
+    if (status != NULL) {
+        const char* error_message = g_ort->GetErrorMessage(status);
+        fprintf(stderr, "Error creating ONNX Runtime environment: %s\n", error_message);
+        g_ort->ReleaseStatus(status);
+        free_args(&args);
+        return 1;
+    }
     
     OrtMemoryInfo* memory_info;
-    g_ort->CreateCpuMemoryInfo(OrtArenaAllocator, OrtMemTypeDefault, &memory_info);
+    status = g_ort->CreateCpuMemoryInfo(OrtArenaAllocator, OrtMemTypeDefault, &memory_info);
+    if (status != NULL) {
+        const char* error_message = g_ort->GetErrorMessage(status);
+        fprintf(stderr, "Error creating CPU memory info: %s\n", error_message);
+        g_ort->ReleaseStatus(status);
+        g_ort->ReleaseEnv(env);
+        free_args(&args);
+        return 1;
+    }
     
     printf("Loading Text-to-Speech model...\n");
     TextToSpeech* tts = load_text_to_speech(env, args.onnx_dir, 0);
