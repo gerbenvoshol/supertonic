@@ -841,6 +841,432 @@ The C implementation should have similar performance to the C++ version as both 
 - Limited Unicode normalization compared to full ICU library
 - Simplified text chunking algorithm
 
+## Can We Train an Encoder Model?
+
+### The Question
+
+"The official Voice Builder is expensive. Can we distill or retrain an encoder using the ONNX models?"
+
+### Short Answer
+
+✅ **YES**, it's technically feasible through **knowledge distillation**, but requires:
+- Python ML framework (PyTorch recommended)
+- GPU resources for training
+- Hours to days of training time  
+- ~850 lines of training code
+- ML/audio processing expertise
+
+This is a significant engineering project beyond the scope of this C implementation, but we provide a complete roadmap below.
+
+### Knowledge Distillation Approach
+
+**Core Idea:** Use the existing TTS models (which convert text+style → audio) to generate synthetic training data for an encoder model (which converts audio → style).
+
+**Training Pipeline:**
+
+```
+Step 1: Generate Synthetic Training Data
+-------------------------------------------
+for i in range(10000):
+    style_ttl = random_vector([1, 50, 256])
+    style_dp = random_vector([1, 8, 16])
+    
+    audio = tts_synthesize(
+        text="The quick brown fox jumps over the lazy dog",
+        style_ttl=style_ttl,
+        style_dp=style_dp
+    )
+    
+    dataset.add(audio, style_ttl, style_dp)
+
+Step 2: Train Encoder Model
+----------------------------
+encoder = EncoderModel()  # CNN or Transformer
+optimizer = Adam(encoder.parameters())
+
+for epoch in range(100):
+    for audio, true_style_ttl, true_style_dp in dataloader:
+        mel = extract_mel_spectrogram(audio)
+        pred_ttl, pred_dp = encoder(mel)
+        
+        loss = mse_loss(pred_ttl, true_style_ttl) + \
+               mse_loss(pred_dp, true_style_dp)
+        
+        loss.backward()
+        optimizer.step()
+
+Step 3: Export and Integrate
+-----------------------------
+torch.onnx.export(encoder, "audio_encoder.onnx")
+# Integrate with C implementation using ONNX Runtime
+```
+
+### Implementation Roadmap
+
+**Phase 1: Data Generation (~200 lines Python)**
+```python
+# data_generator.py
+import torch
+import onnxruntime as ort
+import numpy as np
+
+def generate_training_data(num_samples=10000):
+    # Load TTS models
+    tts = load_tts_models()
+    
+    # Generate diverse style vectors
+    styles = generate_random_styles(num_samples)
+    
+    # Synthesize audio
+    dataset = []
+    for style_ttl, style_dp in styles:
+        audio = tts.synthesize(
+            text=random_text(),
+            style_ttl=style_ttl,
+            style_dp=style_dp
+        )
+        dataset.append((audio, style_ttl, style_dp))
+    
+    return dataset
+```
+
+**Phase 2: Encoder Architecture (~300 lines PyTorch)**
+```python
+# encoder_model.py
+import torch.nn as nn
+
+class AudioEncoder(nn.Module):
+    def __init__(self):
+        super().__init__()
+        
+        # Mel-spectrogram extractor
+        self.mel_extractor = MelSpectrogram(
+            sample_rate=24000,
+            n_fft=1024,
+            hop_length=256,
+            n_mels=80
+        )
+        
+        # CNN backbone (or use Transformer)
+        self.backbone = nn.Sequential(
+            ConvBlock(80, 256, kernel=3),
+            ConvBlock(256, 512, kernel=3),
+            ConvBlock(512, 512, kernel=3),
+        )
+        
+        # Style heads
+        self.style_ttl_head = nn.Linear(512, 50*256)
+        self.style_dp_head = nn.Linear(512, 8*16)
+    
+    def forward(self, audio):
+        # Extract mel-spectrogram
+        mel = self.mel_extractor(audio)  # [B, 80, T]
+        
+        # CNN encoding
+        features = self.backbone(mel)  # [B, 512, T']
+        
+        # Global pooling
+        pooled = features.mean(dim=2)  # [B, 512]
+        
+        # Predict styles
+        style_ttl = self.style_ttl_head(pooled).view(-1, 1, 50, 256)
+        style_dp = self.style_dp_head(pooled).view(-1, 1, 8, 16)
+        
+        return style_ttl, style_dp
+```
+
+**Phase 3: Training Loop (~200 lines)**
+```python
+# train.py
+def train_encoder(encoder, train_loader, val_loader, epochs=100):
+    optimizer = torch.optim.Adam(encoder.parameters(), lr=1e-4)
+    scheduler = CosineAnnealingLR(optimizer, epochs)
+    
+    best_loss = float('inf')
+    
+    for epoch in range(epochs):
+        # Training
+        encoder.train()
+        train_loss = 0
+        for audio, true_ttl, true_dp in train_loader:
+            pred_ttl, pred_dp = encoder(audio)
+            
+            loss = F.mse_loss(pred_ttl, true_ttl) + \
+                   F.mse_loss(pred_dp, true_dp)
+            
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            
+            train_loss += loss.item()
+        
+        # Validation
+        val_loss = validate(encoder, val_loader)
+        
+        # Save best model
+        if val_loss < best_loss:
+            best_loss = val_loss
+            torch.save(encoder.state_dict(), 'best_encoder.pth')
+        
+        scheduler.step()
+        
+        print(f"Epoch {epoch}: train_loss={train_loss:.4f}, val_loss={val_loss:.4f}")
+```
+
+**Phase 4: Evaluation (~100 lines)**
+```python
+# evaluate.py
+def evaluate_encoder(encoder, test_audio_files):
+    """Test encoder on real voice recordings"""
+    for audio_file in test_audio_files:
+        # Encode real audio
+        audio = load_audio(audio_file)
+        style_ttl, style_dp = encoder(audio)
+        
+        # Synthesize with predicted style
+        synth_audio = tts.synthesize(
+            text="Hello, how are you?",
+            style_ttl=style_ttl,
+            style_dp=style_dp
+        )
+        
+        # Save and evaluate
+        save_audio(f"output_{audio_file}", synth_audio)
+        
+        # Metrics: perceptual similarity, speaker verification score
+        similarity = compute_similarity(audio, synth_audio)
+        print(f"{audio_file}: similarity={similarity:.3f}")
+```
+
+**Phase 5: ONNX Export (~50 lines)**
+```python
+# export_onnx.py
+def export_to_onnx(encoder, output_path="audio_encoder.onnx"):
+    encoder.eval()
+    
+    # Dummy input
+    dummy_audio = torch.randn(1, 24000 * 5)  # 5 seconds
+    
+    # Export
+    torch.onnx.export(
+        encoder,
+        dummy_audio,
+        output_path,
+        input_names=['audio'],
+        output_names=['style_ttl', 'style_dp'],
+        dynamic_axes={
+            'audio': {1: 'audio_length'},
+        },
+        opset_version=14
+    )
+    
+    print(f"Encoder exported to {output_path}")
+```
+
+**Phase 6: C Integration (~100 lines)**
+```c
+// encoder_inference.c
+OrtSession* load_encoder(const char* model_path) {
+    // Load ONNX encoder model
+    // Similar to existing TTS model loading
+}
+
+void extract_voice_style(const char* wav_path, Style* style) {
+    // 1. Load audio
+    float* audio = load_wav_file(wav_path);
+    
+    // 2. Run encoder inference
+    OrtValue* input = create_tensor(audio);
+    OrtValue* outputs[2];
+    
+    OrtRun(encoder_session, input, outputs);
+    
+    // 3. Extract style vectors
+    copy_tensor_data(outputs[0], style->ttl);
+    copy_tensor_data(outputs[1], style->dp);
+}
+```
+
+### Requirements
+
+**Software:**
+- Python 3.8+
+- PyTorch 2.0+ (with CUDA support)
+- librosa (audio processing)
+- onnx, onnxruntime
+- numpy, scipy
+
+**Hardware:**
+- GPU: NVIDIA with CUDA (4GB+ VRAM recommended)
+- RAM: 16GB+ for dataset generation
+- Storage: ~10GB for training data
+
+**Time:**
+- Data generation: 3-6 hours (10K samples)
+- Training: 6-24 hours (depends on model size, GPU)
+- Evaluation/tuning: Variable
+
+**Expertise:**
+- Machine learning (PyTorch, training loops)
+- Audio processing (mel-spectrograms, feature extraction)
+- Model optimization (hyperparameter tuning)
+
+### Challenges and Solutions
+
+**Challenge 1: Training Data Diversity**
+- **Problem:** Random styles may not cover real voice variations
+- **Solution:** 
+  - Use stratified sampling (vary energy, pitch range, etc.)
+  - Generate styles from existing voice.json files with perturbations
+  - Include diverse text content (different phonemes, lengths)
+
+**Challenge 2: Quality Validation**
+- **Problem:** How to measure if encoder works well?
+- **Solution:**
+  - Reconstruction error on test set
+  - Perceptual metrics (MCD - Mel Cepstral Distortion, STOI - Short-Time Objective Intelligibility)
+  - Human evaluation on real voices
+  - Speaker verification scores
+
+**Challenge 3: Overfitting**
+- **Problem:** Model memorizes training data
+- **Solution:**
+  - Data augmentation (noise, reverb, pitch shift)
+  - Regularization (dropout, weight decay)
+  - Early stopping on validation set
+  - Large diverse dataset
+
+**Challenge 4: Generalization to Real Voices**
+- **Problem:** Trained on synthetic, tested on real
+- **Solution:**
+  - Fine-tune on small set of real voice pairs (if available)
+  - Use domain adaptation techniques
+  - Test extensively on diverse real recordings
+
+**Challenge 5: Model Architecture**
+- **Problem:** What architecture works best?
+- **Solution:**
+  - Start with proven models (Wav2Vec2, HuBERT architectures)
+  - Experiment with CNN vs Transformer
+  - Try different pooling strategies (mean, attention-based)
+  - Ablation studies
+
+### Suggested Model Architectures
+
+**Option 1: CNN-based Encoder (Simpler, Faster)**
+```
+Input: Raw audio [B, T] or Mel-spectrogram [B, 80, T']
+↓
+Conv1D Blocks (3-5 layers, increasing channels)
+↓
+Global Average Pooling or Attention Pooling
+↓
+Fully Connected Layers
+↓
+Output: style_ttl [B, 1, 50, 256], style_dp [B, 1, 8, 16]
+```
+
+**Option 2: Transformer-based Encoder (More Powerful)**
+```
+Input: Mel-spectrogram [B, 80, T']
+↓
+Convolutional Stem (feature extraction)
+↓
+Transformer Encoder Blocks (6-12 layers)
+↓
+Attention Pooling (attend to important frames)
+↓
+Output Projection
+↓
+Output: style_ttl [B, 1, 50, 256], style_dp [B, 1, 8, 16]
+```
+
+**Option 3: Pre-trained Transfer Learning (Fastest)**
+```
+Use Wav2Vec2 or HuBERT pre-trained encoder
+↓
+Freeze most layers, fine-tune top layers
+↓
+Add projection heads for style outputs
+↓
+Train only projection heads on synthetic data
+```
+
+### Expected Results
+
+**Best Case:**
+- Encoder captures basic voice characteristics
+- Generated voices sound similar to target (70-80% match)
+- Works reasonably on diverse speakers
+- Usable alternative to commercial service
+
+**Realistic Case:**
+- Encoder learns general voice features
+- Quality varies by speaker
+- Better than random baseline
+- Requires per-speaker fine-tuning for best results
+
+**Worst Case:**
+- Encoder fails to generalize
+- Output similar to random styles
+- Needs more training data or different approach
+
+### Cost-Benefit Analysis
+
+**Training Encoder Once:**
+- Time: 1-2 weeks (development + training)
+- Cost: GPU hours ($50-200 on cloud)
+- Expertise: ML/audio background needed
+- Output: Reusable encoder model
+
+**Using Official Service:**
+- Time: Instant per voice
+- Cost: $X per voice (ongoing)
+- Expertise: None needed
+- Output: High-quality styles
+
+**Breakeven Point:**
+If you need to clone N voices:
+- Official: N × $price_per_voice
+- Trained encoder: $fixed_training_cost + minimal_per_voice
+
+Training becomes cost-effective if N is large enough.
+
+### Community Contribution
+
+**Call for Contributions:**
+
+If someone in the community trains a high-quality encoder:
+1. Share the trained ONNX model
+2. Document training process and dataset size
+3. Provide evaluation metrics
+4. Create PR with C integration code
+
+This would create an open-source alternative to the commercial Voice Builder service!
+
+### Practical Recommendations
+
+1. **Start Small**: Generate 1,000 samples first, train a small model, validate the approach
+2. **Iterate**: Gradually increase dataset size and model complexity
+3. **Measure**: Track metrics at each step to ensure improvement
+4. **Share**: Contribute trained models back to the community
+5. **Alternative**: Consider optimization-based approaches (documented in earlier section) as interim solution
+
+### Conclusion
+
+**Training an encoder is feasible but requires significant effort:**
+- ✅ Technically sound approach (knowledge distillation)
+- ✅ Complete implementation roadmap provided
+- ⚠️ Weeks of development time
+- ⚠️ Uncertain quality until tested
+- ⚠️ Requires ML/audio expertise
+
+**For most users:** Official Voice Builder is still the practical choice
+
+**For advanced developers:** This documentation provides everything needed to implement an open-source alternative
+
+**For the community:** Trained models can be shared to benefit everyone!
+
 ## Troubleshooting
 
 ### Library Not Found

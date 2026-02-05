@@ -54,14 +54,25 @@
  * ===================================
  * 
  * Q: Could we use ONNX models to improve this?
- * A1 (Encoder): NO - encoder models are not publicly available
- * A2 (Optimization): Theoretically yes, but impractical:
- *    - Start with good voice.json, optimize to match target audio
- *    - Use simulated annealing or gradient-free optimization
- *    - Requires: 1000+ iterations × 1-2 sec/iter = 30+ minutes
- *    - High-dimensional search (12,928 dimensions)
- *    - No guarantee of quality improvement
- *    - Better to use official Voice Builder service
+ * A1 (Encoder Model): NO - encoder models are not publicly available
+ * A2 (Optimization): Theoretically yes, but impractical (30+ min, uncertain quality)
+ * A3 (Train Encoder): YES, via knowledge distillation - see README.md for full guide
+ * 
+ * Q: Can we train/distill an encoder model?
+ * A: YES! Through knowledge distillation approach:
+ *    1. Generate synthetic data: random_styles → TTS → audio
+ *    2. Train encoder: audio → predicted_styles
+ *    3. Loss: MSE(predicted, original)
+ *    4. Export to ONNX, integrate with C
+ *    
+ *    Requirements:
+ *    - Python + PyTorch + GPU
+ *    - ~850 lines of training code
+ *    - Hours to days of training time
+ *    - ML/audio expertise
+ *    
+ *    See README.md "Can We Train an Encoder Model?" for complete implementation
+ *    roadmap, code examples, and practical considerations.
  * 
  * For production-quality voice styles, please use the official Voice Builder at:
  * https://supertonic.supertone.ai/voice_builder
