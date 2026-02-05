@@ -87,7 +87,11 @@ WavData* read_wav_file(const char* filename) {
     }
     
     int32_t chunk_size;
-    fread(&chunk_size, 4, 1, file);
+    if (fread(&chunk_size, 4, 1, file) != 1) {
+        fprintf(stderr, "Error: Failed to read chunk size\n");
+        fclose(file);
+        return NULL;
+    }
     
     char wave[4];
     if (fread(wave, 1, 4, file) != 4 || memcmp(wave, "WAVE", 4) != 0) {
@@ -113,15 +117,23 @@ WavData* read_wav_file(const char* filename) {
             return NULL;
         }
         
-        fread(&fmt_size, 4, 1, file);
+        if (fread(&fmt_size, 4, 1, file) != 1) {
+            fprintf(stderr, "Error: Failed to read fmt chunk size\n");
+            fclose(file);
+            return NULL;
+        }
         
         if (memcmp(fmt, "fmt ", 4) == 0) {
-            fread(&audio_format, 2, 1, file);
-            fread(&num_channels, 2, 1, file);
-            fread(&sample_rate, 4, 1, file);
-            fread(&byte_rate, 4, 1, file);
-            fread(&block_align, 2, 1, file);
-            fread(&bits_per_sample, 2, 1, file);
+            if (fread(&audio_format, 2, 1, file) != 1 ||
+                fread(&num_channels, 2, 1, file) != 1 ||
+                fread(&sample_rate, 4, 1, file) != 1 ||
+                fread(&byte_rate, 4, 1, file) != 1 ||
+                fread(&block_align, 2, 1, file) != 1 ||
+                fread(&bits_per_sample, 2, 1, file) != 1) {
+                fprintf(stderr, "Error: Failed to read fmt chunk data\n");
+                fclose(file);
+                return NULL;
+            }
             
             /* Skip any extra format bytes */
             if (fmt_size > 16) {
@@ -145,7 +157,11 @@ WavData* read_wav_file(const char* filename) {
             return NULL;
         }
         
-        fread(&data_size, 4, 1, file);
+        if (fread(&data_size, 4, 1, file) != 1) {
+            fprintf(stderr, "Error: Failed to read data chunk size\n");
+            fclose(file);
+            return NULL;
+        }
         
         if (memcmp(data, "data", 4) == 0) {
             break;

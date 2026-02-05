@@ -18,6 +18,9 @@
 #define DEFAULT_DP_DIM1 128
 #define DEFAULT_DP_DIM2 1
 
+/* Global flag to track if random seed has been initialized */
+static int g_random_seeded = 0;
+
 /* Audio analysis functions */
 
 typedef struct {
@@ -103,11 +106,18 @@ void extract_spectral_features(const float* audio, size_t size, float* features,
     }
     
     /* Fill remaining features with randomized values based on audio characteristics */
-    srand(time(NULL) + (unsigned int)(stats.energy * 1000));
+    if (!g_random_seeded) {
+        srand(time(NULL));
+        g_random_seeded = 1;
+    }
+    
+    unsigned int seed = (unsigned int)(stats.energy * 1000);
     for (; idx < feature_count; idx++) {
         /* Generate values influenced by audio characteristics */
         float base = stats.energy * 0.5f;
-        float variation = ((float)rand() / RAND_MAX - 0.5f) * stats.std_dev * 2.0f;
+        seed = seed * 1103515245 + 12345; /* Linear congruential generator */
+        float rand_val = (float)(seed & 0x7fffffff) / 0x7fffffff;
+        float variation = (rand_val - 0.5f) * stats.std_dev * 2.0f;
         features[idx] = base + variation;
     }
 }
@@ -225,7 +235,8 @@ int save_voice_style_json(const VoiceStyle* style, const char* output_path) {
     cJSON* style_ttl = cJSON_CreateObject();
     
     /* Add dims array for style_ttl */
-    cJSON* ttl_dims = cJSON_CreateIntArray((const int[]){1, style->ttl_dim1, style->ttl_dim2}, 3);
+    int ttl_dims_arr[3] = {1, style->ttl_dim1, style->ttl_dim2};
+    cJSON* ttl_dims = cJSON_CreateIntArray(ttl_dims_arr, 3);
     cJSON_AddItemToObject(style_ttl, "dims", ttl_dims);
     
     /* Add data array for style_ttl */
@@ -239,7 +250,8 @@ int save_voice_style_json(const VoiceStyle* style, const char* output_path) {
     cJSON* style_dp = cJSON_CreateObject();
     
     /* Add dims array for style_dp */
-    cJSON* dp_dims = cJSON_CreateIntArray((const int[]){1, style->dp_dim1, style->dp_dim2}, 3);
+    int dp_dims_arr[3] = {1, style->dp_dim1, style->dp_dim2};
+    cJSON* dp_dims = cJSON_CreateIntArray(dp_dims_arr, 3);
     cJSON_AddItemToObject(style_dp, "dims", dp_dims);
     
     /* Add data array for style_dp */
