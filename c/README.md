@@ -10,13 +10,16 @@ This directory contains a pure C implementation of the Supertonic Text-to-Speech
 - **Cross-platform**: Works on macOS and Linux
 - **Memory-managed**: Proper allocation/deallocation with cleanup functions
 - **Same functionality**: Maintains all features from the C++ version
+- **Voice Builder**: Create custom voice styles from WAV files
 
 ## Files
 
 - `supertonic.h` - Main header file with function declarations and structures
 - `supertonic.c` - Core implementation of TTS system
-- `wav_utils.h/c` - WAV file writing utilities
+- `wav_utils.h/c` - WAV file reading and writing utilities
 - `example_onnx.c` - Example program demonstrating usage
+- `audiobook_generator.c` - Tool for converting text files to audiobooks
+- `voice_builder.c` - Tool for creating custom voice styles from WAV files
 - `Makefile` - Build system for compiling the project
 
 ## Dependencies
@@ -73,7 +76,7 @@ git clone https://huggingface.co/Supertone/supertonic-2 assets
 make
 ```
 
-This will compile all source files and create both executables: `example_onnx` and `audiobook_generator`.
+This will compile all source files and create three executables: `example_onnx`, `audiobook_generator`, and `voice_builder`.
 
 ### Custom Library Paths
 
@@ -416,6 +419,129 @@ Sample rate: 24000 Hz
 Total samples: 3008160
 File size: 5.73 MB
 ```
+
+## Voice Builder
+
+The `voice_builder` tool creates custom voice style JSON files from input WAV audio files. These voice styles can then be used with the Supertonic TTS system to synthesize speech in your custom voice.
+
+### Features
+
+- **WAV Input**: Supports 16-bit PCM, 8-bit PCM, and 32-bit float WAV files
+- **Audio Analysis**: Extracts voice characteristics using spectral features
+- **Style Generation**: Creates 192-dimensional text-to-latent and 128-dimensional duration predictor style vectors
+- **JSON Output**: Generates voice style files compatible with all Supertonic implementations
+- **Cross-platform**: Works on macOS and Linux
+
+### Quick Start
+
+```bash
+# Generate voice style from a WAV file
+./voice_builder --input my_voice.wav
+
+# Specify custom output filename
+./voice_builder --input my_voice.wav --output my_custom_voice.json
+
+# Show help
+./voice_builder --help
+```
+
+### Command-line Options
+
+- `--input <file>` - **Required**: Input WAV file containing voice audio
+- `--output <file>` - Output JSON file (default: voice_style.json)
+- `--help, -h` - Show help message with examples and requirements
+
+### Audio Requirements
+
+For best results, use audio that meets these requirements:
+
+- **Format**: WAV (PCM 16-bit, 8-bit, or 32-bit float)
+- **Sample Rate**: 16-24 kHz recommended (other rates supported)
+- **Channels**: Mono or stereo
+- **Duration**: At least 3-5 seconds of clear voice audio
+- **Quality**: Clean recording with minimal background noise
+- **Content**: Natural speech with varied intonation
+
+### Usage Examples
+
+**Basic voice style generation:**
+```bash
+./voice_builder --input recordings/my_voice.wav
+```
+
+**With custom output path:**
+```bash
+./voice_builder --input audio.wav --output ../assets/voice_styles/custom.json
+```
+
+**Using the generated voice style:**
+```bash
+# After generating the voice style, use it with example_onnx
+./example_onnx --voice-style voice_style.json --text "Hello, this is my custom voice!"
+
+# Or with audiobook generator
+./audiobook_generator --input book.txt --voice voice_style.json --output audiobook.wav
+```
+
+### Output Format
+
+The generated JSON file contains two main components:
+
+1. **style_ttl**: Text-to-latent style features (192 dimensions)
+   - Controls the voice characteristics during speech generation
+   - Captures prosody, pitch patterns, and speaking style
+
+2. **style_dp**: Duration predictor style features (128 dimensions)
+   - Controls timing and rhythm of speech
+   - Influences speaking rate and pause patterns
+
+Example structure:
+```json
+{
+  "style_ttl": {
+    "dims": [1, 192, 1],
+    "data": [0.666, 0.666, -0.387, ...]
+  },
+  "style_dp": {
+    "dims": [1, 128, 1],
+    "data": [0.583, 0.583, -0.376, ...]
+  }
+}
+```
+
+### Tips for Best Results
+
+1. **Recording Quality**: Use a good microphone in a quiet environment
+2. **Audio Content**: Record 5-10 seconds of natural, expressive speech
+3. **Multiple Takes**: Try generating styles from different recordings and compare
+4. **Testing**: Test generated styles with various texts to evaluate quality
+5. **Sample Rate**: Match your TTS model's preferred sample rate (24 kHz for Supertonic)
+
+### Technical Details
+
+The voice builder performs the following steps:
+
+1. **WAV Parsing**: Reads and validates the input WAV file
+2. **Audio Analysis**: Extracts statistical features (energy, zero-crossing rate, spectral characteristics)
+3. **Feature Engineering**: Generates windowed statistics across the audio
+4. **Normalization**: Applies zero-mean, unit-variance normalization
+5. **JSON Generation**: Formats features into the required JSON structure
+
+### Limitations
+
+- The voice builder creates style vectors based on audio analysis, not deep learning embeddings
+- Results may vary depending on audio quality and characteristics
+- For production use with optimal quality, consider using the official [Voice Builder](https://supertonic.supertone.ai/voice_builder) service
+
+### Integration with Supertonic
+
+Voice styles generated by this tool are compatible with:
+- C implementation (this directory)
+- Python implementation (`py/`)
+- Node.js implementation (`nodejs/`)
+- All other Supertonic TTS implementations
+
+Simply place the generated JSON file in your voice_styles directory or reference it directly in your TTS calls.
 
 ## API Reference
 
