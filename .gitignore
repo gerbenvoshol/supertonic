@@ -11,7 +11,15 @@ onnx
 *.exe
 c/example_onnx
 c/audiobook_generator
+c/voice_builder
 cpp/example_onnx
+
+# Test files
+c/test_*.wav
+c/test_*.json
+c/test_wav_generator
+c/example_voice.wav
+c/example_voice_style.json
 
 # User-specific build configuration
 c/Makefile.local

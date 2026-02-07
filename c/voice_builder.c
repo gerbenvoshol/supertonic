@@ -1,0 +1,493 @@
+/*
+ * Voice Builder for Supertonic TTS - EXPERIMENTAL
+ * 
+ * ⚠️  WARNING: This is a simplified demonstration tool that does NOT produce
+ *     high-quality voice styles. The generated styles use basic audio statistics
+ *     and will likely produce DISTORTED or POOR QUALITY speech.
+ * 
+ * TECHNICAL BACKGROUND (from ONNX model analysis):
+ * ================================================
+ * 
+ * The TTS system uses two style vectors to condition voice characteristics:
+ * 
+ * 1. style_ttl [1, 50, 256] = 12,800 elements
+ *    - Used in SpeechPromptedAttention (cross-attention in text encoder)
+ *    - Query from text, Key/Value from style embeddings
+ *    - Captures voice timbre, tone, and prosodic patterns
+ *    - Should be: output from trained speech encoder network
+ *    - This tool: randomly generated values based on audio statistics
+ * 
+ * 2. style_dp [1, 8, 16] = 128 elements
+ *    - Concatenated with text features [64 + 128 = 192]
+ *    - Fed through MLP to predict phoneme durations
+ *    - Captures speaking rate and rhythm patterns  
+ *    - Should be: output from trained duration encoder network
+ *    - This tool: randomly generated values based on audio statistics
+ * 
+ * WHY THIS APPROACH FAILS:
+ * ========================
+ * 
+ * Real voice styles require:
+ *   1. Mel-spectrogram extraction from audio
+ *   2. Trained encoder models (ConvNeXt + Multi-head Attention)
+ *   3. Style embeddings learned from thousands of voice samples
+ *   4. Complex neural network architectures:
+ *      - Text Encoder: 6 ConvNeXt blocks, 4 attention layers, 2 cross-attention
+ *      - Duration Predictor: 2 attention layers, 6 ConvNeXt blocks, MLP head
+ *      - Vector Estimator: 24+ layers with time conditioning
+ * 
+ * This C implementation:
+ *   - Extracts ~20 basic audio statistics (energy, ZCR, etc.)
+ *   - Fills remaining ~12,780 values with pseudo-random numbers
+ *   - Cannot capture voice identity, prosody, or style
+ * 
+ * PROPER IMPLEMENTATION WOULD REQUIRE:
+ * ====================================
+ * 
+ *   - ONNX Runtime library integration
+ *   - Loading pre-trained encoder models
+ *   - Mel-spectrogram computation
+ *   - Neural network inference in C
+ *   - Significant engineering effort (~1000+ lines of code)
+ * 
+ * ALTERNATIVE IMPROVEMENT APPROACHES:
+ * ===================================
+ * 
+ * Q: Could we use ONNX models to improve this?
+ * A1 (Encoder Model): NO - encoder models are not publicly available
+ * A2 (Optimization): Theoretically yes, but impractical (30+ min, uncertain quality)
+ * A3 (Train Encoder): YES, via knowledge distillation - see README.md for full guide
+ * 
+ * Q: Can we train/distill an encoder model?
+ * A: YES! Through knowledge distillation approach:
+ *    1. Generate synthetic data: random_styles → TTS → audio
+ *    2. Train encoder: audio → predicted_styles
+ *    3. Loss: MSE(predicted, original)
+ *    4. Export to ONNX, integrate with C
+ *    
+ *    Requirements:
+ *    - Python + PyTorch + GPU
+ *    - ~850 lines of training code
+ *    - Hours to days of training time
+ *    - ML/audio expertise
+ *    
+ *    See README.md "Can We Train an Encoder Model?" for complete implementation
+ *    roadmap, code examples, and practical considerations.
+ * 
+ * For production-quality voice styles, please use the official Voice Builder at:
+ * https://supertonic.supertone.ai/voice_builder
+ * 
+ * This tool generates voice style JSON files from input WAV audio files using
+ * simplified feature extraction. It is provided for educational/experimental
+ * purposes only.
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+#include <time.h>
+#include "wav_utils.h"
+#include "vendor/cjson/cJSON.h"
+
+#define DEFAULT_TTL_DIM1 50
+#define DEFAULT_TTL_DIM2 256
+#define DEFAULT_DP_DIM1 8
+#define DEFAULT_DP_DIM2 16
+
+/* Global flag to track if random seed has been initialized */
+static int g_random_seeded = 0;
+
+/* Audio analysis functions */
+
+typedef struct {
+    float mean;
+    float std_dev;
+    float min;
+    float max;
+    float energy;
+} AudioStats;
+
+AudioStats analyze_audio(const float* audio, size_t size) {
+    AudioStats stats = {0};
+    
+    if (size == 0) return stats;
+    
+    /* Calculate mean */
+    double sum = 0.0;
+    for (size_t i = 0; i < size; i++) {
+        sum += audio[i];
+    }
+    stats.mean = sum / size;
+    
+    /* Calculate min, max, and variance */
+    stats.min = audio[0];
+    stats.max = audio[0];
+    double variance_sum = 0.0;
+    double energy_sum = 0.0;
+    
+    for (size_t i = 0; i < size; i++) {
+        if (audio[i] < stats.min) stats.min = audio[i];
+        if (audio[i] > stats.max) stats.max = audio[i];
+        
+        double diff = audio[i] - stats.mean;
+        variance_sum += diff * diff;
+        energy_sum += audio[i] * audio[i];
+    }
+    
+    stats.std_dev = sqrt(variance_sum / size);
+    stats.energy = sqrt(energy_sum / size);
+    
+    return stats;
+}
+
+float calculate_zero_crossing_rate(const float* audio, size_t size) {
+    if (size < 2) return 0.0f;
+    
+    int crossings = 0;
+    for (size_t i = 1; i < size; i++) {
+        if ((audio[i-1] >= 0 && audio[i] < 0) || (audio[i-1] < 0 && audio[i] >= 0)) {
+            crossings++;
+        }
+    }
+    
+    return (float)crossings / (size - 1);
+}
+
+void extract_spectral_features(const float* audio, size_t size, float* features, int feature_count) {
+    /* Simple spectral feature extraction using autocorrelation-like approach */
+    /* This is a simplified version - in production, FFT would be used */
+    
+    AudioStats stats = analyze_audio(audio, size);
+    float zcr = calculate_zero_crossing_rate(audio, size);
+    
+    /* Initialize with basic audio statistics */
+    int idx = 0;
+    if (idx < feature_count) features[idx++] = stats.energy;
+    if (idx < feature_count) features[idx++] = stats.std_dev;
+    if (idx < feature_count) features[idx++] = zcr;
+    if (idx < feature_count) features[idx++] = stats.max - stats.min;
+    
+    /* Generate additional features using windowed statistics */
+    size_t window_size = size / 8;
+    if (window_size == 0) window_size = 1;
+    
+    for (int i = 0; i < 8 && idx < feature_count; i++) {
+        size_t start = i * window_size;
+        size_t end = (i + 1) * window_size;
+        if (end > size) end = size;
+        
+        AudioStats window_stats = analyze_audio(audio + start, end - start);
+        if (idx < feature_count) features[idx++] = window_stats.energy;
+        if (idx < feature_count) features[idx++] = window_stats.std_dev;
+    }
+    
+    /* Fill remaining features with randomized values based on audio characteristics */
+    if (!g_random_seeded) {
+        srand(time(NULL));
+        g_random_seeded = 1;
+    }
+    
+    unsigned int seed = (unsigned int)(stats.energy * 1000);
+    for (; idx < feature_count; idx++) {
+        /* Generate values influenced by audio characteristics */
+        float base = stats.energy * 0.5f;
+        seed = seed * 1103515245 + 12345; /* Linear congruential generator */
+        float rand_val = (float)(seed & 0x7fffffff) / 0x7fffffff;
+        float variation = (rand_val - 0.5f) * stats.std_dev * 2.0f;
+        features[idx] = base + variation;
+    }
+}
+
+void normalize_features(float* features, int count) {
+    /* Calculate mean and std */
+    double sum = 0.0;
+    for (int i = 0; i < count; i++) {
+        sum += features[i];
+    }
+    float mean = sum / count;
+    
+    double variance_sum = 0.0;
+    for (int i = 0; i < count; i++) {
+        double diff = features[i] - mean;
+        variance_sum += diff * diff;
+    }
+    float std_dev = sqrt(variance_sum / count);
+    
+    /* Normalize to zero mean, unit variance */
+    if (std_dev > 0.0001f) {
+        for (int i = 0; i < count; i++) {
+            features[i] = (features[i] - mean) / std_dev;
+        }
+    }
+}
+
+/* Voice style generation */
+
+typedef struct {
+    float* ttl_data;
+    int ttl_dim1;
+    int ttl_dim2;
+    float* dp_data;
+    int dp_dim1;
+    int dp_dim2;
+} VoiceStyle;
+
+VoiceStyle* create_voice_style_from_audio(WavData* wav_data) {
+    if (!wav_data || !wav_data->audio_data) {
+        fprintf(stderr, "Error: Invalid WAV data\n");
+        return NULL;
+    }
+    
+    printf("\nExtracting voice style features...\n");
+    
+    VoiceStyle* style = (VoiceStyle*)calloc(1, sizeof(VoiceStyle));
+    if (!style) {
+        fprintf(stderr, "Error: Failed to allocate VoiceStyle\n");
+        return NULL;
+    }
+    
+    /* Set dimensions */
+    style->ttl_dim1 = DEFAULT_TTL_DIM1;
+    style->ttl_dim2 = DEFAULT_TTL_DIM2;
+    style->dp_dim1 = DEFAULT_DP_DIM1;
+    style->dp_dim2 = DEFAULT_DP_DIM2;
+    
+    /* Allocate feature arrays */
+    int ttl_size = style->ttl_dim1 * style->ttl_dim2;
+    int dp_size = style->dp_dim1 * style->dp_dim2;
+    
+    style->ttl_data = (float*)calloc(ttl_size, sizeof(float));
+    style->dp_data = (float*)calloc(dp_size, sizeof(float));
+    
+    if (!style->ttl_data || !style->dp_data) {
+        fprintf(stderr, "Error: Failed to allocate feature arrays\n");
+        if (style->ttl_data) free(style->ttl_data);
+        if (style->dp_data) free(style->dp_data);
+        free(style);
+        return NULL;
+    }
+    
+    /* Extract features from audio */
+    printf("  Extracting text-to-latent style features (%d dimensions)...\n", ttl_size);
+    extract_spectral_features(wav_data->audio_data, wav_data->audio_size, 
+                              style->ttl_data, ttl_size);
+    normalize_features(style->ttl_data, ttl_size);
+    
+    printf("  Extracting duration predictor style features (%d dimensions)...\n", dp_size);
+    extract_spectral_features(wav_data->audio_data, wav_data->audio_size, 
+                              style->dp_data, dp_size);
+    normalize_features(style->dp_data, dp_size);
+    
+    printf("Voice style extraction completed!\n");
+    
+    return style;
+}
+
+void voice_style_free(VoiceStyle* style) {
+    if (style) {
+        if (style->ttl_data) free(style->ttl_data);
+        if (style->dp_data) free(style->dp_data);
+        free(style);
+    }
+}
+
+/* JSON generation */
+
+int save_voice_style_json(const VoiceStyle* style, const char* output_path) {
+    if (!style || !output_path) {
+        fprintf(stderr, "Error: Invalid arguments to save_voice_style_json\n");
+        return -1;
+    }
+    
+    printf("\nGenerating JSON file: %s\n", output_path);
+    
+    cJSON* root = cJSON_CreateObject();
+    if (!root) {
+        fprintf(stderr, "Error: Failed to create JSON root object\n");
+        return -1;
+    }
+    
+    /* Create style_ttl object */
+    cJSON* style_ttl = cJSON_CreateObject();
+    
+    /* Add dims array for style_ttl */
+    int ttl_dims_arr[3] = {1, style->ttl_dim1, style->ttl_dim2};
+    cJSON* ttl_dims = cJSON_CreateIntArray(ttl_dims_arr, 3);
+    cJSON_AddItemToObject(style_ttl, "dims", ttl_dims);
+    
+    /* Add data array for style_ttl */
+    cJSON* ttl_data_array = cJSON_CreateFloatArray(style->ttl_data, 
+                                                    style->ttl_dim1 * style->ttl_dim2);
+    cJSON_AddItemToObject(style_ttl, "data", ttl_data_array);
+    
+    cJSON_AddItemToObject(root, "style_ttl", style_ttl);
+    
+    /* Create style_dp object */
+    cJSON* style_dp = cJSON_CreateObject();
+    
+    /* Add dims array for style_dp */
+    int dp_dims_arr[3] = {1, style->dp_dim1, style->dp_dim2};
+    cJSON* dp_dims = cJSON_CreateIntArray(dp_dims_arr, 3);
+    cJSON_AddItemToObject(style_dp, "dims", dp_dims);
+    
+    /* Add data array for style_dp */
+    cJSON* dp_data_array = cJSON_CreateFloatArray(style->dp_data, 
+                                                   style->dp_dim1 * style->dp_dim2);
+    cJSON_AddItemToObject(style_dp, "data", dp_data_array);
+    
+    cJSON_AddItemToObject(root, "style_dp", style_dp);
+    
+    /* Convert to string and save */
+    char* json_string = cJSON_Print(root);
+    if (!json_string) {
+        fprintf(stderr, "Error: Failed to generate JSON string\n");
+        cJSON_Delete(root);
+        return -1;
+    }
+    
+    FILE* file = fopen(output_path, "w");
+    if (!file) {
+        fprintf(stderr, "Error: Failed to open output file: %s\n", output_path);
+        free(json_string);
+        cJSON_Delete(root);
+        return -1;
+    }
+    
+    fprintf(file, "%s", json_string);
+    fclose(file);
+    
+    free(json_string);
+    cJSON_Delete(root);
+    
+    printf("Voice style JSON file saved successfully!\n");
+    return 0;
+}
+
+/* Command-line interface */
+
+void print_usage(const char* program_name) {
+    printf("\n");
+    printf("Voice Builder for Supertonic TTS - EXPERIMENTAL\n");
+    printf("=================================\n\n");
+    
+    printf("⚠️  WARNING: This tool uses simplified feature extraction.\n");
+    printf("Generated voice styles will likely produce DISTORTED speech.\n");
+    printf("For production use, visit: https://supertonic.supertone.ai/voice_builder\n\n");
+    
+    printf("Generates voice style JSON files from input WAV audio files.\n\n");
+    printf("Usage: %s --input <wav_file> [options]\n\n", program_name);
+    printf("Required arguments:\n");
+    printf("  --input <file>     Input WAV file containing voice audio\n\n");
+    printf("Optional arguments:\n");
+    printf("  --output <file>    Output JSON file (default: voice_style.json)\n");
+    printf("  --help, -h         Show this help message\n\n");
+    printf("Audio requirements:\n");
+    printf("  - Format: WAV (PCM 16-bit, 8-bit, or 32-bit float)\n");
+    printf("  - Recommended: 16-24 kHz sample rate, mono or stereo\n");
+    printf("  - Duration: At least 3-5 seconds of clear voice audio\n");
+    printf("  - Quality: Clean recording with minimal background noise\n\n");
+    printf("Examples:\n");
+    printf("  # Basic usage\n");
+    printf("  %s --input my_voice.wav\n\n", program_name);
+    printf("  # Specify output file\n");
+    printf("  %s --input my_voice.wav --output my_style.json\n\n", program_name);
+    printf("Output format:\n");
+    printf("  The generated JSON file contains:\n");
+    printf("  - style_ttl: Text-to-latent style features (50x256 = 12800 dimensions)\n");
+    printf("  - style_dp: Duration predictor style features (8x16 = 128 dimensions)\n\n");
+    printf("Usage with Supertonic:\n");
+    printf("  Place the generated JSON file in the voice_styles directory and\n");
+    printf("  use it with any Supertonic TTS implementation:\n\n");
+    printf("    ./example_onnx --voice-style path/to/my_style.json --text \"Hello!\"\n\n");
+}
+
+int main(int argc, char* argv[]) {
+    const char* input_path = NULL;
+    const char* output_path = "voice_style.json";
+    
+    /* Parse command-line arguments */
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--input") == 0 && i + 1 < argc) {
+            input_path = argv[++i];
+        } else if (strcmp(argv[i], "--output") == 0 && i + 1 < argc) {
+            output_path = argv[++i];
+        } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
+            print_usage(argv[0]);
+            return 0;
+        } else {
+            fprintf(stderr, "Error: Unknown argument: %s\n", argv[i]);
+            fprintf(stderr, "Use --help for usage information\n");
+            return 1;
+        }
+    }
+    
+    /* Validate required arguments */
+    if (!input_path) {
+        fprintf(stderr, "Error: --input argument is required\n");
+        fprintf(stderr, "Use --help for usage information\n");
+        return 1;
+    }
+    
+    printf("\n========================================\n");
+    printf("Voice Builder for Supertonic TTS\n");
+    printf("========================================\n\n");
+    
+    printf("⚠️  WARNING: EXPERIMENTAL TOOL\n");
+    printf("────────────────────────────────────────\n");
+    printf("This tool uses simplified feature extraction and will likely\n");
+    printf("produce DISTORTED or POOR QUALITY speech output.\n\n");
+    printf("For production-quality voice styles, please use the official\n");
+    printf("Voice Builder at: https://supertonic.supertone.ai/voice_builder\n");
+    printf("────────────────────────────────────────\n\n");
+    
+    /* Load WAV file */
+    printf("Loading input audio: %s\n", input_path);
+    WavData* wav_data = read_wav_file(input_path);
+    if (!wav_data) {
+        fprintf(stderr, "Failed to load WAV file\n");
+        return 1;
+    }
+    
+    /* Validate audio duration */
+    float duration = (float)wav_data->audio_size / wav_data->sample_rate / wav_data->num_channels;
+    if (duration < 2.0f) {
+        fprintf(stderr, "\nWarning: Audio duration (%.2f seconds) is short.\n", duration);
+        fprintf(stderr, "For best results, use at least 3-5 seconds of clear voice audio.\n\n");
+    }
+    
+    /* Create voice style */
+    VoiceStyle* style = create_voice_style_from_audio(wav_data);
+    wav_data_free(wav_data);
+    
+    if (!style) {
+        fprintf(stderr, "Failed to create voice style\n");
+        return 1;
+    }
+    
+    /* Save to JSON */
+    if (save_voice_style_json(style, output_path) != 0) {
+        voice_style_free(style);
+        fprintf(stderr, "Failed to save voice style JSON\n");
+        return 1;
+    }
+    
+    voice_style_free(style);
+    
+    printf("\n========================================\n");
+    printf("Voice style generation completed!\n");
+    printf("========================================\n\n");
+    printf("Output file: %s\n\n", output_path);
+    
+    printf("⚠️  IMPORTANT NOTICE:\n");
+    printf("────────────────────────────────────────\n");
+    printf("This generated voice style uses simplified feature extraction\n");
+    printf("and will likely produce DISTORTED or POOR QUALITY speech.\n\n");
+    printf("For production-quality results, please use the official\n");
+    printf("Voice Builder at: https://supertonic.supertone.ai/voice_builder\n");
+    printf("────────────────────────────────────────\n\n");
+    printf("To test (expect poor quality):\n");
+    printf("  ./example_onnx --voice-style %s --text \"Hello, world!\"\n\n", output_path);
+    
+    return 0;
+}

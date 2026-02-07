@@ -413,7 +413,9 @@ int unicode_processor_call(
             free(unicode_counts);
             return -1;
         }
+        
         unicode_vals[i] = text_to_unicode_values(processed_texts[i], &unicode_counts[i]);
+        
         if (!unicode_vals[i]) {
             free(processed_texts[i]);
             for (int j = 0; j < i; j++) {
@@ -465,6 +467,8 @@ int unicode_processor_call(
         for (size_t j = 0; j < unicode_counts[i]; j++) {
             if (unicode_vals[i][j] < processor->indexer_size) {
                 text_ids[i][j] = processor->indexer[unicode_vals[i][j]];
+            } else {
+                text_ids[i][j] = 0;  // Map unknown characters to 0
             }
         }
     }
@@ -834,24 +838,53 @@ Style* load_voice_style(const char** voice_style_paths, int count, int verbose) 
         cJSON* dp_data = cJSON_GetObjectItem(cJSON_GetObjectItem(json, "style_dp"), "data");
         
         size_t ttl_idx = i * ttl_dim1 * ttl_dim2;
-        cJSON* batch;
-        cJSON_ArrayForEach(batch, ttl_data) {
-            cJSON* row;
-            cJSON_ArrayForEach(row, batch) {
-                cJSON* val;
-                cJSON_ArrayForEach(val, row) {
-                    ttl_flat[ttl_idx++] = (float)val->valuedouble;
+        
+        /* Check if data is a flat array or nested array */
+        cJSON* first_ttl = cJSON_GetArrayItem(ttl_data, 0);
+        int is_ttl_flat = (first_ttl && !cJSON_IsArray(first_ttl));
+        
+        if (is_ttl_flat) {
+            /* Flat array format from voice_builder */
+            cJSON* val;
+            cJSON_ArrayForEach(val, ttl_data) {
+                ttl_flat[ttl_idx++] = (float)val->valuedouble;
+            }
+        } else {
+            /* Nested array format from original voice styles */
+            cJSON* batch;
+            cJSON_ArrayForEach(batch, ttl_data) {
+                cJSON* row;
+                cJSON_ArrayForEach(row, batch) {
+                    cJSON* val;
+                    cJSON_ArrayForEach(val, row) {
+                        ttl_flat[ttl_idx++] = (float)val->valuedouble;
+                    }
                 }
             }
         }
         
         size_t dp_idx = i * dp_dim1 * dp_dim2;
-        cJSON_ArrayForEach(batch, dp_data) {
-            cJSON* row;
-            cJSON_ArrayForEach(row, batch) {
-                cJSON* val;
-                cJSON_ArrayForEach(val, row) {
-                    dp_flat[dp_idx++] = (float)val->valuedouble;
+        
+        /* Check if data is a flat array or nested array */
+        cJSON* first_dp = cJSON_GetArrayItem(dp_data, 0);
+        int is_dp_flat = (first_dp && !cJSON_IsArray(first_dp));
+        
+        if (is_dp_flat) {
+            /* Flat array format from voice_builder */
+            cJSON* val;
+            cJSON_ArrayForEach(val, dp_data) {
+                dp_flat[dp_idx++] = (float)val->valuedouble;
+            }
+        } else {
+            /* Nested array format from original voice styles */
+            cJSON* batch;
+            cJSON_ArrayForEach(batch, dp_data) {
+                cJSON* row;
+                cJSON_ArrayForEach(row, batch) {
+                    cJSON* val;
+                    cJSON_ArrayForEach(val, row) {
+                        dp_flat[dp_idx++] = (float)val->valuedouble;
+                    }
                 }
             }
         }
@@ -1438,6 +1471,15 @@ SynthesisResult* tts_call(
     int max_len = (strcmp(lang, "ko") == 0) ? 120 : 300;
     int chunk_count;
     char** text_chunks = chunk_text(text, max_len, &chunk_count);
+    
+    if (chunk_count > 1) {
+        fprintf(stderr, "Info: Text split into %d chunks\n", chunk_count);
+        for (int i = 0; i < chunk_count; i++) {
+            fprintf(stderr, "  Chunk %d (len=%zu): \"%.50s%s\"\n", 
+                    i, strlen(text_chunks[i]), text_chunks[i],
+                    strlen(text_chunks[i]) > 50 ? "..." : "");
+        }
+    }
     
     float* wav_cat = NULL;
     size_t wav_cat_size = 0;
