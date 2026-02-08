@@ -12,6 +12,7 @@ onnx
 c/example_onnx
 c/audiobook_generator
 c/voice_builder
+c/voice_mixer
 cpp/example_onnx
 
 # Test files
