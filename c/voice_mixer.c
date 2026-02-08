@@ -154,7 +154,7 @@ VoiceStyle* load_voice_style(const char* path) {
         /* Flat array format from voice_builder or previously mixed voice */
         cJSON* val;
         cJSON_ArrayForEach(val, ttl_data) {
-            if (ttl_idx < style->ttl_size) {
+            if (ttl_idx < (size_t)style->ttl_size) {
                 style->ttl_data[ttl_idx++] = (float)val->valuedouble;
             }
         }
@@ -166,7 +166,7 @@ VoiceStyle* load_voice_style(const char* path) {
             cJSON_ArrayForEach(row, batch) {
                 cJSON* val;
                 cJSON_ArrayForEach(val, row) {
-                    if (ttl_idx < style->ttl_size) {
+                    if (ttl_idx < (size_t)style->ttl_size) {
                         style->ttl_data[ttl_idx++] = (float)val->valuedouble;
                     }
                 }
@@ -231,7 +231,7 @@ VoiceStyle* load_voice_style(const char* path) {
         /* Flat array format from voice_builder or previously mixed voice */
         cJSON* val;
         cJSON_ArrayForEach(val, dp_data) {
-            if (dp_idx < style->dp_size) {
+            if (dp_idx < (size_t)style->dp_size) {
                 style->dp_data[dp_idx++] = (float)val->valuedouble;
             }
         }
@@ -243,7 +243,7 @@ VoiceStyle* load_voice_style(const char* path) {
             cJSON_ArrayForEach(row, batch) {
                 cJSON* val;
                 cJSON_ArrayForEach(val, row) {
-                    if (dp_idx < style->dp_size) {
+                    if (dp_idx < (size_t)style->dp_size) {
                         style->dp_data[dp_idx++] = (float)val->valuedouble;
                     }
                 }
