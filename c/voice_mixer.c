@@ -121,8 +121,15 @@ VoiceStyle* load_voice_style(const char* path) {
     
     /* Get dimensions */
     if (cJSON_GetArraySize(ttl_dims) >= 3) {
-        style->ttl_dim1 = cJSON_GetArrayItem(ttl_dims, 1)->valueint;
-        style->ttl_dim2 = cJSON_GetArrayItem(ttl_dims, 2)->valueint;
+        cJSON* dim1_item = cJSON_GetArrayItem(ttl_dims, 1);
+        cJSON* dim2_item = cJSON_GetArrayItem(ttl_dims, 2);
+        if (dim1_item && dim2_item) {
+            style->ttl_dim1 = dim1_item->valueint;
+            style->ttl_dim2 = dim2_item->valueint;
+        } else {
+            style->ttl_dim1 = DEFAULT_TTL_DIM1;
+            style->ttl_dim2 = DEFAULT_TTL_DIM2;
+        }
     } else {
         style->ttl_dim1 = DEFAULT_TTL_DIM1;
         style->ttl_dim2 = DEFAULT_TTL_DIM2;
@@ -167,8 +174,15 @@ VoiceStyle* load_voice_style(const char* path) {
     
     /* Get dimensions */
     if (cJSON_GetArraySize(dp_dims) >= 3) {
-        style->dp_dim1 = cJSON_GetArrayItem(dp_dims, 1)->valueint;
-        style->dp_dim2 = cJSON_GetArrayItem(dp_dims, 2)->valueint;
+        cJSON* dim1_item = cJSON_GetArrayItem(dp_dims, 1);
+        cJSON* dim2_item = cJSON_GetArrayItem(dp_dims, 2);
+        if (dim1_item && dim2_item) {
+            style->dp_dim1 = dim1_item->valueint;
+            style->dp_dim2 = dim2_item->valueint;
+        } else {
+            style->dp_dim1 = DEFAULT_DP_DIM1;
+            style->dp_dim2 = DEFAULT_DP_DIM2;
+        }
     } else {
         style->dp_dim1 = DEFAULT_DP_DIM1;
         style->dp_dim2 = DEFAULT_DP_DIM2;
@@ -473,6 +487,11 @@ int save_voice_style_json(const VoiceStyle* style, const char* output_path) {
     cJSON_AddItemToObject(style_ttl, "dims", ttl_dims);
     
     cJSON* ttl_data_array = cJSON_CreateFloatArray(style->ttl_data, style->ttl_size);
+    if (!ttl_data_array) {
+        fprintf(stderr, "Error: Failed to create ttl_data array\n");
+        cJSON_Delete(root);
+        return -1;
+    }
     cJSON_AddItemToObject(style_ttl, "data", ttl_data_array);
     
     cJSON_AddItemToObject(root, "style_ttl", style_ttl);
@@ -485,6 +504,11 @@ int save_voice_style_json(const VoiceStyle* style, const char* output_path) {
     cJSON_AddItemToObject(style_dp, "dims", dp_dims);
     
     cJSON* dp_data_array = cJSON_CreateFloatArray(style->dp_data, style->dp_size);
+    if (!dp_data_array) {
+        fprintf(stderr, "Error: Failed to create dp_data array\n");
+        cJSON_Delete(root);
+        return -1;
+    }
     cJSON_AddItemToObject(style_dp, "data", dp_data_array);
     
     cJSON_AddItemToObject(root, "style_dp", style_dp);
@@ -693,6 +717,14 @@ int main(int argc, char* argv[]) {
                 /* Skip hidden files */
                 if (entry->d_name[0] != '.') {
                     char* full_path = (char*)malloc(MAX_PATH);
+                    if (!full_path) {
+                        fprintf(stderr, "Error: Memory allocation failed\n");
+                        closedir(dir);
+                        for (int j = 0; j < num_available; j++) {
+                            free(available_voices[j]);
+                        }
+                        return 1;
+                    }
                     snprintf(full_path, MAX_PATH, "%s/%s", voice_dir, entry->d_name);
                     available_voices[num_available++] = full_path;
                 }
