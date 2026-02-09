@@ -1,0 +1,37 @@
+# Voice Cloning Knowledge Distillation Pipeline Dependencies
+
+# Core dependencies
+torch>=2.0.0
+torchaudio>=2.0.0
+onnxruntime>=1.23.1
+onnx>=1.14.0
+
+# Audio processing
+librosa>=0.10.0
+soundfile>=0.12.1
+numpy>=1.26.0
+
+# Data handling
+PyYAML>=6.0
+tqdm>=4.65.0
+
+# Visualization (optional)
+matplotlib>=3.7.0
+umap-learn>=0.5.3  # For t-SNE/UMAP visualization
+
+# Logging (optional)
+tensorboard>=2.13.0
+# wandb>=0.15.0  # Uncomment if you want to use Weights & Biases
+
+# Model optimization (optional)
+# onnxslim>=0.1.0  # Uncomment for ONNX model optimization
+
+# Audio quality metrics (optional for evaluation)
+# pesq>=0.0.4  # Perceptual Evaluation of Speech Quality
+# pystoi>=0.3.3  # Short-Time Objective Intelligibility
+
+# Development dependencies (optional)
+# pytest>=7.3.0
+# black>=23.3.0
+# flake8>=6.0.0
+# mypy>=1.3.0
