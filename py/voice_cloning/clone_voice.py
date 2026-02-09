@@ -450,9 +450,10 @@ def format_style_json(
     style_ttl_data = style_ttl[0].flatten().tolist()  # [1, 50, 256] -> [12800]
     style_dp_data = style_dp[0].flatten().tolist()    # [1, 8, 16] -> [128]
     
-    # Get dimensions (excluding batch dimension)
-    ttl_dims = list(style_ttl.shape)  # [1, 1, 50, 256]
-    dp_dims = list(style_dp.shape)    # [1, 1, 8, 16]
+    # Get dimensions (batch=1, then actual dimensions)
+    # Format: [batch_size, height, width] to match helper.py load_voice_style
+    ttl_dims = [1, style_ttl.shape[2], style_ttl.shape[3]]  # [1, 50, 256]
+    dp_dims = [1, style_dp.shape[2], style_dp.shape[3]]    # [1, 8, 16]
     
     # Create JSON structure matching Supertonic format
     voice_style = {
@@ -464,11 +465,11 @@ def format_style_json(
         },
         "style_ttl": {
             "dims": ttl_dims,
-            "data": [style_ttl_data]  # Wrap in list to match expected format
+            "data": [style_ttl_data]  # List of flattened arrays
         },
         "style_dp": {
             "dims": dp_dims,
-            "data": [style_dp_data]  # Wrap in list to match expected format
+            "data": [style_dp_data]  # List of flattened arrays
         }
     }
     
@@ -586,8 +587,8 @@ def load_voice_style(voice_style_paths: list, verbose: bool = False) -> "Style":
     dp_dims = first_style["style_dp"]["dims"]
     
     # Pre-allocate arrays with full batch size
-    ttl_style = np.zeros([bsz, ttl_dims[2], ttl_dims[3]], dtype=np.float32)
-    dp_style = np.zeros([bsz, dp_dims[2], dp_dims[3]], dtype=np.float32)
+    ttl_style = np.zeros([bsz, ttl_dims[1], ttl_dims[2]], dtype=np.float32)
+    dp_style = np.zeros([bsz, dp_dims[1], dp_dims[2]], dtype=np.float32)
     
     # Fill in the data
     for i, voice_style_path in enumerate(voice_style_paths):
@@ -597,10 +598,10 @@ def load_voice_style(voice_style_paths: list, verbose: bool = False) -> "Style":
         ttl_data = np.array(
             voice_style["style_ttl"]["data"], dtype=np.float32
         ).flatten()
-        ttl_style[i] = ttl_data.reshape(ttl_dims[2], ttl_dims[3])
+        ttl_style[i] = ttl_data.reshape(ttl_dims[1], ttl_dims[2])
         
         dp_data = np.array(voice_style["style_dp"]["data"], dtype=np.float32).flatten()
-        dp_style[i] = dp_data.reshape(dp_dims[2], dp_dims[3])
+        dp_style[i] = dp_data.reshape(dp_dims[1], dp_dims[2])
     
     if verbose:
         print(f"Loaded {bsz} voice styles")
