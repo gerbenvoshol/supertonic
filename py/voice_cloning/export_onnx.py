@@ -12,6 +12,7 @@ import argparse
 import json
 import os
 import time
+import warnings
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
@@ -28,6 +29,7 @@ try:
     PSUTIL_AVAILABLE = True
 except ImportError:
     PSUTIL_AVAILABLE = False
+    warnings.warn("psutil not available - memory usage tracking disabled")
 
 from config import TrainingConfig
 from encoder_model import load_encoder
