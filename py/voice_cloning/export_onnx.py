@@ -12,6 +12,7 @@ import argparse
 import json
 import os
 import time
+from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional, Tuple
@@ -21,6 +22,12 @@ import onnx
 import onnxruntime as ort
 import torch
 from onnx import checker, helper, shape_inference
+
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
 
 from config import TrainingConfig
 from encoder_model import load_encoder
@@ -301,11 +308,16 @@ def validate_onnx_model(
     print(f"  Max: {max_time*1000:.2f} ms")
     
     # Check memory usage (approximate from model size)
-    import psutil
-    process = psutil.Process()
-    memory_mb = process.memory_info().rss / (1024 * 1024)
-    
-    print(f"\nMemory usage: {memory_mb:.2f} MB")
+    memory_mb = None
+    if PSUTIL_AVAILABLE:
+        try:
+            process = psutil.Process()
+            memory_mb = process.memory_info().rss / (1024 * 1024)
+            print(f"\nMemory usage: {memory_mb:.2f} MB")
+        except Exception as e:
+            print(f"\nWarning: Could not measure memory usage: {e}")
+    else:
+        print(f"\nMemory usage: N/A (psutil not installed)")
     
     # Overall validation status
     validation_passed = all([
@@ -344,7 +356,7 @@ def validate_onnx_model(
             'min_ms': float(min_time * 1000),
             'max_ms': float(max_time * 1000),
         },
-        'memory_mb': float(memory_mb),
+        'memory_mb': float(memory_mb) if memory_mb is not None else None,
         'rtol': rtol,
         'atol': atol,
     }
@@ -443,8 +455,6 @@ def save_export_metadata(
         config: Training configuration.
         opset_version: ONNX opset version.
     """
-    from dataclasses import asdict
-    
     full_metadata = {
         'export_info': {
             'export_datetime': datetime.now().isoformat(),
