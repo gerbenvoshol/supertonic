@@ -284,6 +284,138 @@ Currently single-GPU. For multi-GPU, modify train.py to use:
 model = torch.nn.DataParallel(model)
 ```
 
+## Using Trained Model for Voice Cloning
+
+After training, use `clone_voice.py` to clone voices from audio samples.
+
+### Quick Start
+
+```bash
+# Clone voice using trained model (PyTorch)
+python clone_voice.py \
+  --input speaker.wav \
+  --output cloned_voice.json \
+  --encoder checkpoints/best_encoder.pth \
+  --mode pytorch \
+  --name "Speaker Name"
+
+# Clone voice using ONNX model (production)
+python clone_voice.py \
+  --input speaker.wav \
+  --output cloned_voice.json \
+  --encoder output/encoder.onnx \
+  --mode onnx \
+  --device cpu
+```
+
+### With TTS Testing
+
+Test the cloned voice immediately:
+
+```bash
+python clone_voice.py \
+  --input speaker.wav \
+  --output cloned_voice.json \
+  --encoder encoder.onnx \
+  --test \
+  --test-text "Hello, this is a test." \
+  --test-output test_output.wav \
+  --onnx-dir ../../assets/onnx
+```
+
+### Command Line Arguments
+
+| Argument | Type | Default | Description |
+|----------|------|---------|-------------|
+| `--input` | str | **required** | Path to input audio file (WAV, MP3, FLAC, etc.) |
+| `--output` | str | **required** | Path to output JSON file |
+| `--encoder` | str | **required** | Path to encoder model (.pth or .onnx) |
+| `--mode` | str | auto | Inference mode: 'auto', 'pytorch', or 'onnx' |
+| `--device` | str | auto | Device: 'auto', 'cpu', 'cuda', or 'mps' |
+| `--name` | str | cloned_voice | Name for the voice style |
+| `--description` | str | auto | Description for the voice style |
+| `--test` | flag | false | Run TTS test after cloning |
+| `--test-text` | str | ... | Text to use for TTS test |
+| `--test-output` | str | test_output.wav | Where to save test audio |
+| `--onnx-dir` | str | ../../assets/onnx | Path to TTS ONNX models for testing |
+| `--test-language` | str | en | Language for TTS test (en, ko, es, pt, fr) |
+| `--test-speed` | float | 1.05 | Speed factor for TTS test |
+| `--test-steps` | int | 5 | Number of denoising steps for TTS test |
+| `--quiet` | flag | false | Suppress progress messages |
+
+### Audio Requirements
+
+For best results:
+- **Duration**: 5-30 seconds (minimum 3s, warn if >30s)
+- **Format**: WAV, MP3, FLAC, OGG, M4A
+- **Content**: Clean speech from single speaker
+- **Quality**: Good audio quality (no noise/echo if possible)
+
+The script will automatically:
+- Resample to 24kHz
+- Convert to mono
+- Normalize volume
+
+### Output Format
+
+The output JSON file contains:
+```json
+{
+  "name": "cloned_voice",
+  "description": "Voice cloned from speaker.wav (15.3s)",
+  "metadata": {
+    "source_audio": "speaker.wav",
+    "created_at": "2024-02-09 18:30:00"
+  },
+  "style_ttl": {
+    "dims": [1, 50, 256],
+    "data": [[...12800 values...]]
+  },
+  "style_dp": {
+    "dims": [1, 8, 16],
+    "data": [[...128 values...]]
+  }
+}
+```
+
+This JSON can be loaded by Supertonic TTS for voice synthesis.
+
+### Error Handling
+
+The script validates:
+- ✓ Input audio file exists and is valid format
+- ✓ Encoder model file exists
+- ✓ Audio duration (warns if too short/long)
+- ✓ Output tensor shapes
+- ✓ Device availability
+
+Example error:
+```
+Error occurred:
+  FileNotFoundError: Audio file not found: nonexistent.wav
+```
+
+### Example Workflow
+
+Complete workflow from training to deployment:
+
+```bash
+# 1. Generate training data (see data_generator.py)
+python data_generator.py --num-samples 10000
+
+# 2. Train encoder
+python train.py --data-dir ./training_data --epochs 100
+
+# 3. Export to ONNX for production
+python export_onnx.py --checkpoint checkpoints/best_encoder.pth --output encoder.onnx
+
+# 4. Clone a voice
+python clone_voice.py --input speaker.wav --output voice.json --encoder encoder.onnx
+
+# 5. Use in TTS application
+# (Load voice.json in your Supertonic TTS application)
+```
+
 ## Performance Tips
 
 1. **Use CUDA**: 10-50x faster than CPU
