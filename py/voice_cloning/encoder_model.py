@@ -18,7 +18,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.checkpoint import checkpoint
 
-from .config import TrainingConfig
+from config import TrainingConfig
 
 
 class AttentionPooling(nn.Module):
