@@ -41,18 +41,13 @@ class AttentionPooling(nn.Module):
         Apply attention pooling.
         
         Args:
-            x: Input tensor of shape [B, C, T] or [B, T, C]
+            x: Input tensor of shape [B, T, C]
             mask: Optional boolean mask of shape [B, T] (True for valid positions)
             
         Returns:
             Pooled tensor of shape [B, C]
         """
-        # Handle both [B, C, T] and [B, T, C] formats
-        if x.dim() == 3 and x.size(1) > x.size(2):
-            # Assume [B, C, T], transpose to [B, T, C]
-            x = x.transpose(1, 2)
-        
-        # x is now [B, T, C]
+        # x must be [B, T, C]
         # Compute attention scores
         attn_scores = self.attention(x).squeeze(-1)  # [B, T]
         
@@ -183,6 +178,9 @@ class CNNEncoder(nn.Module):
             for i, length in enumerate(mask_len):
                 new_mask[i, :length] = True
             mask = new_mask
+        
+        # Transpose from [B, C, T'] to [B, T', C] for attention pooling
+        x = x.transpose(1, 2)  # [B, T', 512]
         
         # Attention pooling
         x = self.attention_pool(x, mask)  # [B, 512]
